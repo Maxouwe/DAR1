@@ -1,0 +1,41 @@
+/*all qfidf tables*/
+CREATE TABLE brandqfidf(
+    brand text,
+    qfidf real,
+    PRIMARY KEY(brand)
+);
+
+CREATE TABLE modelqfidf(
+    model text,
+    qfidf real,
+    PRIMARY KEY(model)
+);
+
+CREATE TABLE typeqfidf(
+    type text,
+    qfidf real,
+    PRIMARY KEY(type)
+);
+
+INSERT INTO numtuples
+SELECT COUNT(*)
+FROM autompg;
+
+INSERT INTO brandqfidf
+SELECT brandqf.brand, brandqf.qf*brandidf.idf
+FROM brandqf
+INNER JOIN brandidf
+ON brandqf.brand = brandidf.brand;
+
+INSERT INTO modelqfidf
+SELECT modelqf.model, modelqf.qf*modelidf.idf
+FROM modelqf
+INNER JOIN modelidf
+ON modelqf.model = modelidf.model;
+
+INSERT INTO typeqfidf
+SELECT typeqf.type, typeqf.qf*typeidf.idf
+FROM typeqf
+INNER JOIN typeidf
+ON typeqf.type = typeidf.type;
+

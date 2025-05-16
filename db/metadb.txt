@@ -1,0 +1,120 @@
+/*all qf and idf tables*/
+CREATE TABLE brandidf(
+    brand text,
+    idf real,
+    PRIMARY KEY(brand)
+);
+
+CREATE TABLE modelidf(
+    model text,
+    idf real,
+    PRIMARY KEY(model)
+);
+
+CREATE TABLE typeidf(
+    type text,
+    idf real,
+    PRIMARY KEY(type)
+);
+
+CREATE TABLE brandqf(
+    brand text,
+    qf real,
+    PRIMARY KEY(brand)
+);
+
+CREATE TABLE modelqf(
+    model text,
+    qf real,
+    PRIMARY KEY(model)
+);
+
+CREATE TABLE typeqf(
+    type text,
+    qf real,
+    PRIMARY KEY(type)
+);
+
+CREATE TABLE mpgqf(
+    mpg real,
+    qf real,
+    PRIMARY KEY(mpg)
+);
+
+CREATE TABLE cylindersqf(
+    cylinders integer,
+    qf real,
+    PRIMARY KEY(cylinders)
+);
+
+CREATE TABLE displacementqf(
+    displacement real,
+    qf real,
+    PRIMARY KEY(displacement)
+);
+
+CREATE TABLE horsepowerqf(
+    horsepower real,
+    qf real,
+    PRIMARY KEY(horsepower)
+);
+
+CREATE TABLE weightqf(
+    weight real,
+    qf real,
+    PRIMARY KEY(weight)
+);
+
+CREATE TABLE accelerationqf(
+    acceleration real,
+    qf real,
+    PRIMARY KEY(acceleration)
+);
+
+CREATE TABLE model_yearqf(
+    model_year integer,
+    qf real,
+    PRIMARY KEY(model_year)
+);
+
+CREATE TABLE originqf(
+    origin integer,
+    qf real,
+    PRIMARY KEY(origin)
+);
+
+CREATE TABLE mpgbandwidth(
+    bandwidth real
+);
+
+CREATE TABLE cylindersbandwidth(
+    bandwidth real
+);
+
+CREATE TABLE displacementbandwidth(
+    bandwidth real
+);
+
+CREATE TABLE horsepowerbandwidth(
+    bandwidth real
+);
+
+CREATE TABLE weightbandwidth(
+    bandwidth real
+);
+
+CREATE TABLE accelerationbandwidth(
+    bandwidth real
+);
+
+CREATE TABLE model_yearbandwidth(
+    bandwidth real
+);
+
+CREATE TABLE originbandwidth(
+    bandwidth real
+);
+
+CREATE TABLE numtuples(
+    num integer
+);

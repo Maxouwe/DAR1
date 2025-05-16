@@ -1,0 +1,108 @@
+Opdracht t.o.v. IR
+Tuple komt overeen met document
+Attribuutwaard komt overeen met woord
+In database geval geen TF want een bepaalde <attribuut, value> paar kan maar een keer voorkomen in een tuple.
+Stel je hebt een query Q en een tuple T. Een tuple T past goed bij tuple Q
+als de similarityscore S(T, Q) hoog is. S(T, Q) = Som(k een attribuut) S(tk, qk).
+S(tk, qk) is de similarityscore tussen de tuple en query wat betreft attribuut k.
+Stel je hebt het attribuut merk. En de query zegt merk = nissan en tuple zegt merk = citroen
+dan heb je S(tmerk, qmerk) = S(citroen, nissan).
+Dus S(T, Q) is de som van similarity scores voor elk attribuut.
+Het is deze S(tk, qk) functie waar wij vrijheid in krijgen om die te bepalen.
+Maar over het algemeen zijn er wel dingen in de paper die we kunnen gebruiken voor deze functie.
+Een attribuut kan categorical zijn of numerical zijn. De similarityscore wordt anders berekent op
+basis van het soort attribuut.
+
+Categorical:
+S(tk, qk) = QF(qk)*IDF(qk) if tk = qk
+S(tk, qk) = 0 if tk != qk
+
+Numerical:
+S(tk, qk) = zie formule (3) in de paper
+
+Dit is de hoofdlijn van het probleem er zijn nog wat details waar ik later verder op in ga.
+
+Wat is QF(x)?
+QF(x) = (RQF(x) + 1) / (RQFMax + 1)       (zie sectie 4.3)
+Waarbij RQF(x) = het aantal tuples in de workload waarbij attribuut k = x
+En RQFMax = hoogste RQF in de workload.
+Dus dit is in principe een waarde voor hoe vaak bijvoorbeeld merk = nissan in het verleden is aangevraagd.
+Hoe vaker, hoe hoger de QF score.
+
+Wat is IDF(x) (voor categorical)?
+IDF(x) = log(n/F(x))
+Waarbij n het aantal tuples in de database
+F(x) = het aantal tuples in de database met attribuut k = x
+Dit is dus in principe een waarde voor hoe zeldzaam x is. Net zoals in IR waarbij IDF kijkt hoe zeldzaam een woord is.
+Hoe zeldzamer hoe, informatierijker x en dus hoe hoger de score.
+
+Wat is IDF(x) (voor numerical)?
+Hier wordt het misschien ietsje ingewikkelder, maar ik zal het proberen te uitleggen.
+Voor categorical attributes zeggen ze idf(x) = 0 als de waarde niet overeenkomen,
+maar voor numerical wil je natuurlijk iets anders stel dat tk = 0.9, qk = 0.91, dan wil je
+natuurlijk niet dat de idf-score 0 is, dus wordt er een continuous function gebruikt voor numerical attributes.
+Ik weet niet of ik formule (3) zelf helemaal begrijp, maar dat is misschien ook niet belangrijk,
+We gaan hem gewoon gebruiken en nemen aan dat het zo goed is haha.
+Maar er is een ding dat wel belangrijk is:
+In formule (3) staat IDF(q), de definitie voor IDF(q) voor numerical attributes is formule (2).
+Je ziet hier t, in dit geval is dat dus q (de query waarde voor de betreffende numerical attribuut).
+En je ziet die ti'tjes, dat zijn alle waarden voor het betreffende attribuut in de database.
+Dus stel query zegt horsepower = 21, en in de database zie je tuples met
+horsepower = 20, horsepower = 22, horsepower = 20, horsepower = 19,
+Dan reken je IDF(horsepower = 21) uit met al deze waardes en ja de waarde 20 twee keer.
+Het probleem is dat je niet op het moment van de query al deze berekeningen wilt doen.
+Alleen tijdens preprocessing weet je de query waarde is. Dus wat is de oplossing?
+Bereken alle IDF(horsepower = 20), IDF(horsepower = 20) etc. allemaal uit met
+formule (2).
+En dan tijdens query time als horspower = 21 wordt gevraagd interpoleer je tussen
+IDF(hp = 20) en IDF(hp = 22).
+
+Het idee van de opdracht:
+Je hebt twee fases, de preprocessing-fase en de query-fase.
+De preprocessing-fase gebruiken we om IDF en QF tables te maken op basis van de workload en database.
+Dan in de query-fase gebruiken we deze tables om een gepaste top-k terug te geven.
+De IDF en QF tables komen in een zelfgemaakte metadata.db.
+
+Het probleem gaat verder...
+
+Wat als er many answers zijn:
+Het kan zijn dat er meer dan k tuples zijn die dezelfde similarity score hebben.
+Stel de query is merk = nissan dan heb je natuurlijk heel veel tuples die dezelfde similarity score hebben.
+Als eerste kunnen we naar alle attributen kijken die niet in de query worden vernoemd.
+De tuples met hoogste QF score voor deze missende attributen krijgen hoogste score. (Zie sectie 5).
+Als dan nog te veel tuples met zelfde score zijn moeten we de eisen zelf strenger maken op basis van een zelf verzonnen functie.
+We zouden kunnen zeggen dat zuinigere autos voorkeur hebben. We moeten zelf even een score functie op basis van 
+autokenmerken bedenken, maar hier hoeven we niet heel lang over na te denken. Zolang de functie maar sterk onderscheidend is.
+
+Wat als er te weinig of zelfs zero tuples zijn:
+Dit voorkomen we door toe tepassen wat in sectie 4.2 wordt besproken. Dit betekent in principe
+het aanpassen van de QF formule om een non-zero score te voorkomen (zie formule (6)).
+Voorbeeld:
+De user vraagt merk = lamborghini. Waarschijnlijk zijn er maar 2 of 3 lamborghinis in de database.
+We zouden dus er voor kunnen zorgen dat ferraris ook terug worden gegeven.
+Dit doen we door naar de IN queries van de workload te kijken.
+attribuut waarden die samen in een IN query staan, daarvan zeggen we dat die vergelijkbaar zijn.
+Stel dat er nog steeds te weinig tuples zijn.
+We zouden als eerst kunnen kijken of er attributen zijn die missen.
+We ranken nu de tuples of basis van de QFIDF score van de missende attributen.
+Het is wel belangrijk dat we de originele ranking behouden en dat we de top-k
+alleen maar langer maken. Dus we willen niet dat de additionele ranking
+het bovenste deel van de top-k in de war haalt. 
+Is het probleem juist dat er te veel eisen zijn dan maken we de eisen zwakker.
+Het kan dus zijn dat de query zo specifiek is dat we wat attributen weg moeten halen.
+Waarschijnlijk moeten we even een ranking maken van belangrijkheid van attributen.
+We zouden kunnen zeggen merk > type > model > horsepower > verbruik > etc.
+En dan telkens elke verzwakkings stap de minst belangrijke attribuut uit de query te verwijderen.
+
+
+Dit is in principe alles.
+Als we nog tijd over hebben kunnen we er voor zorgen dat we queries met IN-clauses kunnen
+processen (sectie 3.3).
+
+
+
+
+
+
+
+
