@@ -8,44 +8,47 @@ namespace Preprocessing
 {
     internal class Program
     {
-        static string metaConnectionString = @"Data Source=..\..\..\..\..\db\meta.db;Version=3";
+        static string metaDBConnectionString = @"Data Source=..\..\..\..\..\db\metadata.db;Version=3";
 
-        //delegate function type that we can use as callback function for reading tuples from a table
+        //useful for reducing boilerplate code
         public delegate void readFunc(SQLiteDataReader reader);
 
         static void Main(string[] args)
         {
-            //delete metadatabase als die er nog is van een vorige keer
-            if (File.Exists(@"..\..\..\..\..\db\meta.db"))
+            //make sure to delete the previous metadatabase
+            if (File.Exists(@"..\..\..\..\..\db\metadata.db"))
             {
-                File.Delete(@"..\..\..\..\..\db\meta.db");
+                File.Delete(@"..\..\..\..\..\db\metadata.db");
             }
 
-            //create the database files
-            SQLiteConnection.CreateFile(@"..\..\..\..\..\db\meta.db");
+            //create a new metadatabase
+            SQLiteConnection.CreateFile(@"..\..\..\..\..\db\metadata.db");
 
             //make a connection with the database
-            SQLiteConnection metaConnection = new SQLiteConnection(metaConnectionString);
+            SQLiteConnection metaConnection = new SQLiteConnection(metaDBConnectionString);
             metaConnection.Open();
 
-            //put the filled autompg table into the metadb
+            //load the autompg table
             executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\autompg.sql"));
 
-            //create all qf and idf tables in the metadb
-            executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metadb.txt"));
+            //instantiate all qf and idf tables 
+            executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metaTableDefinitions.txt"));
          
-            //execute the sql instructions from metaload.txt
-            //this file fills all categorical and numerical idf table
-            executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metaload.txt"));
+            //execute all load instructions from metaTableLoadInstructions.txt
+            //i.e. fill all idf-tables with data (both categorical and numerical)
+            executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metaTableLoadInstructions.txt"));
 
-            //calculate all QF values from the workload
-            collectQF(metaConnection);
+            //fill all qf table with data (categorical and numerical)
+            //by parsing and analyzing the workload.txt file
+            calculateQFs(metaConnection);
 
+            //close the database connection
             metaConnection.Close();
         }
 
-        //finds all QFs and puts them in the table specified through the connection parameter
-        static void collectQF(SQLiteConnection connection)
+        //fill all qf table with data (categorical and numerical)
+        //by parsing and analyzing the workload.txt file
+        static void calculateQFs(SQLiteConnection connection)
         {
             string[] lines = File.ReadLines(@"..\..\..\..\..\db\workload.txt").ToArray();
 
@@ -54,10 +57,8 @@ namespace Preprocessing
             //make dictionary so we can look up currently known RQF of an attribute by the attribute name
             Dictionary<string, float> RQFs = new Dictionary<string, float>();
 
-            //parse all lines
-            //and put it in the dictionary with format ["attribute=value", rqf(value)]
-            //for each attribute value v: if we find v in an AND clause we add the number(foud at the beginning of the line) to rqf(v)
-            //at the same time we keep track of the current rqfmax
+            //find the rqf for each <attribute, value> pair
+            //and put them in a dictionary like this <"attribute=value", rqf(value)>
             for (int i = 2; i < lines.Length; i++)
             {
                 if (lines[i] != "")
@@ -92,26 +93,24 @@ namespace Preprocessing
                 }
             }
 
-
-            //fill all qf tables
-            //categorical
-            fillQFTable(connection, "brand", RQFs, RQFMax);
-            fillQFTable(connection, "model", RQFs, RQFMax);
-            fillQFTable(connection, "type", RQFs, RQFMax);
-            fillQFTable(connection, "origin", RQFs, RQFMax);
-            //numerical
-            fillQFTable(connection, "mpg", RQFs, RQFMax);
-            fillQFTable(connection, "cylinders", RQFs, RQFMax);
-            fillQFTable(connection, "displacement", RQFs, RQFMax);
-            fillQFTable(connection, "horsepower", RQFs, RQFMax);
-            fillQFTable(connection, "weight", RQFs, RQFMax);
-            fillQFTable(connection, "acceleration", RQFs, RQFMax);
-            fillQFTable(connection, "model_year", RQFs, RQFMax);
+            //fill all qf tables with data for each attribute
+            populateQFTable(connection, "brand", RQFs, RQFMax);
+            populateQFTable(connection, "model", RQFs, RQFMax);
+            populateQFTable(connection, "type", RQFs, RQFMax);
+            populateQFTable(connection, "origin", RQFs, RQFMax);
+            populateQFTable(connection, "mpg", RQFs, RQFMax);
+            populateQFTable(connection, "cylinders", RQFs, RQFMax);
+            populateQFTable(connection, "displacement", RQFs, RQFMax);
+            populateQFTable(connection, "horsepower", RQFs, RQFMax);
+            populateQFTable(connection, "weight", RQFs, RQFMax);
+            populateQFTable(connection, "acceleration", RQFs, RQFMax);
+            populateQFTable(connection, "model_year", RQFs, RQFMax);
             
         }
 
-        //fill QF table for attribute based on the RQF and RQFMax
-        static void fillQFTable(SQLiteConnection connection, string attribute, Dictionary<string, float> RQFs, float RQFMax)
+        //fill every <attribute-name>QF table
+        //given the RQF dictionary and maximumRQF
+        static void populateQFTable(SQLiteConnection connection, string attribute, Dictionary<string, float> RQFs, float RQFMax)
         {
             readTuples(connection,
                 String.Format(@"SELECT {0} FROM autompg GROUP BY {0}", attribute),
@@ -120,27 +119,33 @@ namespace Preprocessing
                     string val;
                     try
                     {
+                        //try to get string value of the attribute
                         val = reader.GetString(reader.GetOrdinal(attribute));
                     }
                     catch
                     {
+                        //otherwise get the float value of the attribute
                         val = reader.GetFloat(reader.GetOrdinal(attribute)).ToString();
                     }
+
+                    //format the attribute value so we can look it up in our rqf dictionary
                     string key = attribute + "=" + val;
+
                     if (RQFs.ContainsKey(key))
                     {
+                        //if the attribute value has been mentioned in the workload
                         executeSQL(connection, String.Format(@"INSERT INTO {0}qf VALUES({1}, {2})", attribute, "\'" + val + "\'", (RQFs[key] + 1) / (RQFMax + 1)));
                     }
                     else
                     {
+                        //otherwise we have RQF(attribute=value) = 0
                         executeSQL(connection, String.Format(@"INSERT INTO {0}qf VALUES({1}, {2})", attribute, "\'" + val + "\'", 1 / (RQFMax + 1)));
                     }
                 }
                 );
         }
 
-        //execute the sql statements from given by the string
-        //using the db file signified by the dbConnection
+        //executes a string of sql statements
         static void executeSQL(SQLiteConnection dbConnection, string sqlStatements)
         {
             using (SQLiteCommand command = new SQLiteCommand(dbConnection))
@@ -152,7 +157,7 @@ namespace Preprocessing
 
         //reads tuples from a database 
         //sqlStatement should be a SELECT statement
-        //use the function f to decide what to do with each tuple
+        //on each tuple we perform calback function f
         static void readTuples(SQLiteConnection dbConnection, string sqlStatement, readFunc f)
         {
             using (SQLiteCommand command = new SQLiteCommand(dbConnection))
