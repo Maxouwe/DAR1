@@ -9,25 +9,25 @@ FROM autompg;
 /*categorical attributes idf scores*/
 
 /*brand*/
-INSERT INTO brandidf SELECT brand, LOG(numtuples.num/COUNT(brand)) 
+INSERT INTO brandidf SELECT brand, LOG10(numtuples.num/COUNT(brand)) 
 FROM autompg
 INNER JOIN numtuples
 GROUP BY brand;
 
 /*model*/
-INSERT INTO modelidf SELECT model, LOG(numtuples.num/COUNT(model)) 
+INSERT INTO modelidf SELECT model, LOG10(numtuples.num/COUNT(model)) 
 FROM autompg
 INNER JOIN numtuples
 GROUP BY model;
 
 /*type*/
-INSERT INTO typeidf SELECT type, LOG(numtuples.num/COUNT(type)) 
+INSERT INTO typeidf SELECT type, LOG10(numtuples.num/COUNT(type)) 
 FROM autompg
 INNER JOIN numtuples
 GROUP BY type;
 
 /*origin*/
-INSERT INTO originidf SELECT origin, LOG(numtuples.num/COUNT(origin)) 
+INSERT INTO originidf SELECT origin, LOG10(numtuples.num/COUNT(origin)) 
 FROM autompg
 INNER JOIN numtuples
 GROUP BY origin;
