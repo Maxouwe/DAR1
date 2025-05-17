@@ -42,14 +42,12 @@ namespace Preprocessing
                 );
 
             //create all qf and idf tables in the metadb
-            //categorical attributes get both qf and idf tables, while numerical attributes only qf
-            //because we will do the idf calculations for them at query time
-            //also creates the bandwidth tables
             executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metadb.txt"));
 
-            //put categorical IDF in the idf tables
-            collectCategoricalIDF(metaConnection);
+            //put categorical and numerical idf in the idftables
+            collectIDF(metaConnection);
 
+            
             //calculate all QF values from the workload
             collectQF(metaConnection);
 
@@ -128,9 +126,12 @@ namespace Preprocessing
 
 
             //fill all qf tables
+            //categorical
             fillQFTable(connection, "brand", RQFs, RQFMax);
             fillQFTable(connection, "model", RQFs, RQFMax);
             fillQFTable(connection, "type", RQFs, RQFMax);
+            fillQFTable(connection, "origin", RQFs, RQFMax);
+            //numerical
             fillQFTable(connection, "mpg", RQFs, RQFMax);
             fillQFTable(connection, "cylinders", RQFs, RQFMax);
             fillQFTable(connection, "displacement", RQFs, RQFMax);
@@ -138,7 +139,7 @@ namespace Preprocessing
             fillQFTable(connection, "weight", RQFs, RQFMax);
             fillQFTable(connection, "acceleration", RQFs, RQFMax);
             fillQFTable(connection, "model_year", RQFs, RQFMax);
-            fillQFTable(connection, "origin", RQFs, RQFMax);
+            
         }
 
         //fill QF table for attribute based on the RQF and RQFMax
@@ -176,18 +177,28 @@ namespace Preprocessing
             executeSQL(connection, String.Format(@"INSERT INTO {0}bandwidth SELECT 1.06*STDEV({0})*POWER({1}, -0.2) AS bandwidth FROM autompg", attribute, numTuples));
         }
 
-        static void collectCategoricalIDF(SQLiteConnection connection)
+        static void collectIDF(SQLiteConnection connection)
         {
 
-            //collect idf for the brand attribute
+            //categorical attributes
+
+            //brand
             executeSQL(connection, String.Format(@"INSERT INTO brandidf SELECT brand, LOG({0}/COUNT(brand)) FROM autompg GROUP BY brand", numTuples));
 
-            //collect idf for the model attribute
+            //model
             executeSQL(connection, String.Format(@"INSERT INTO modelidf SELECT model, LOG({0}/COUNT(model)) FROM autompg GROUP BY model", numTuples));
 
-            //collect idf for the type attribute
+            //type
             executeSQL(connection, String.Format(@"INSERT INTO typeidf SELECT type, LOG({0}/COUNT(type)) FROM autompg GROUP BY type", numTuples));
 
+            //origin
+            executeSQL(connection, String.Format(@"INSERT INTO originidf SELECT origin, LOG({0}/COUNT(origin)) FROM autompg GROUP BY origin", numTuples));
+
+
+
+            //numerical attributes
+
+            //
         }
 
 

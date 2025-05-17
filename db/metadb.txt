@@ -1,120 +1,143 @@
-/*all qf and idf tables*/
+/*all qf and idf tables definitions*/
+
+/*brand*/
 CREATE TABLE brandidf(
     brand text,
     idf real,
     PRIMARY KEY(brand)
 );
-
-CREATE TABLE modelidf(
-    model text,
-    idf real,
-    PRIMARY KEY(model)
-);
-
-CREATE TABLE typeidf(
-    type text,
-    idf real,
-    PRIMARY KEY(type)
-);
-
 CREATE TABLE brandqf(
     brand text,
     qf real,
     PRIMARY KEY(brand)
 );
 
+/*model*/
+CREATE TABLE modelidf(
+    model text,
+    idf real,
+    PRIMARY KEY(model)
+);
 CREATE TABLE modelqf(
     model text,
     qf real,
     PRIMARY KEY(model)
 );
 
+/*type*/
+CREATE TABLE typeidf(
+    type text,
+    idf real,
+    PRIMARY KEY(type)
+);
 CREATE TABLE typeqf(
     type text,
     qf real,
     PRIMARY KEY(type)
 );
 
+/*origin*/
+/*origin is integer in autompg, but we consider it categorical and make it text for programming convenience*/
+CREATE TABLE originidf(
+    origin text,
+    idf real,
+    PRIMARY KEY(type)
+);
+CREATE TABLE originqf(
+    origin text,
+    qf real,
+    PRIMARY KEY(type)
+);
+
+/*mpg*/
+CREATE TABLE mpgidf(
+    mpg real,
+    idf real,
+    PRIMARY KEY(mpg)
+);
 CREATE TABLE mpgqf(
     mpg real,
     qf real,
     PRIMARY KEY(mpg)
 );
 
+/*cylinders*/
+CREATE TABLE cylindersidf(
+    cylinders integer,
+    idf real,
+    PRIMARY KEY(cylinders)
+);
 CREATE TABLE cylindersqf(
     cylinders integer,
-    qf real,
+    idf real,
     PRIMARY KEY(cylinders)
 );
 
+/*displacement*/
+CREATE TABLE displacementidf(
+    displacement real,
+    idf real,
+    PRIMARY KEY(displacement)
+);
 CREATE TABLE displacementqf(
     displacement real,
     qf real,
     PRIMARY KEY(displacement)
 );
 
+/*horsepower*/
+CREATE TABLE horsepoweridf(
+    horsepower real,
+    idf real,
+    PRIMARY KEY(horsepower)
+);
 CREATE TABLE horsepowerqf(
     horsepower real,
     qf real,
     PRIMARY KEY(horsepower)
 );
 
+/*weight*/
+CREATE TABLE weightidf(
+    weight real,
+    idf real,
+    PRIMARY KEY(weight)
+);
 CREATE TABLE weightqf(
     weight real,
     qf real,
     PRIMARY KEY(weight)
 );
 
+/*acceleration*/
+CREATE TABLE accelerationidf(
+    acceleration real,
+    idf real,
+    PRIMARY KEY(acceleration)
+);
 CREATE TABLE accelerationqf(
     acceleration real,
     qf real,
     PRIMARY KEY(acceleration)
 );
 
+/*model_year*/
+CREATE TABLE model_yearidf(
+    model_year integer,
+    idf real,
+    PRIMARY KEY(model_year)
+);
 CREATE TABLE model_yearqf(
     model_year integer,
     qf real,
     PRIMARY KEY(model_year)
 );
 
-CREATE TABLE originqf(
-    origin integer,
-    qf real,
-    PRIMARY KEY(origin)
-);
-
-CREATE TABLE mpgbandwidth(
-    bandwidth real
-);
-
-CREATE TABLE cylindersbandwidth(
-    bandwidth real
-);
-
-CREATE TABLE displacementbandwidth(
-    bandwidth real
-);
-
-CREATE TABLE horsepowerbandwidth(
-    bandwidth real
-);
-
-CREATE TABLE weightbandwidth(
-    bandwidth real
-);
-
-CREATE TABLE accelerationbandwidth(
-    bandwidth real
-);
-
-CREATE TABLE model_yearbandwidth(
-    bandwidth real
-);
-
-CREATE TABLE originbandwidth(
-    bandwidth real
-);
-
+/*keep this in table so we dont constantly have to count tuples during query processing*/
 CREATE TABLE numtuples(
     num integer
 );
+
+
+
+

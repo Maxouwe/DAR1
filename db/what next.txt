@@ -1,0 +1,6 @@
+create insert statements for numerical IDF tables
+then manage the qf tables from c# because you need to analyze the workload
+do use qf for numeric values use same smooth function as used for idf (see 4.3)
+
+https://inloop.github.io/sqlite-viewer/
+https://sqliteonline.com/

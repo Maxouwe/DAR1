@@ -1,41 +1,192 @@
-/*all qfidf tables*/
-CREATE TABLE brandqfidf(
-    brand text,
-    qfidf real,
-    PRIMARY KEY(brand)
-);
+/*all loading instructions for filling the idf tables (qf tables are filled by c# program)*/
 
-CREATE TABLE modelqfidf(
-    model text,
-    qfidf real,
-    PRIMARY KEY(model)
-);
-
-CREATE TABLE typeqfidf(
-    type text,
-    qfidf real,
-    PRIMARY KEY(type)
-);
 
 INSERT INTO numtuples
 SELECT COUNT(*)
 FROM autompg;
 
-INSERT INTO brandqfidf
-SELECT brandqf.brand, brandqf.qf*brandidf.idf
-FROM brandqf
-INNER JOIN brandidf
-ON brandqf.brand = brandidf.brand;
 
-INSERT INTO modelqfidf
-SELECT modelqf.model, modelqf.qf*modelidf.idf
-FROM modelqf
-INNER JOIN modelidf
-ON modelqf.model = modelidf.model;
+/*categorical attributes idf scores*/
 
-INSERT INTO typeqfidf
-SELECT typeqf.type, typeqf.qf*typeidf.idf
-FROM typeqf
-INNER JOIN typeidf
-ON typeqf.type = typeidf.type;
+/*brand*/
+INSERT INTO brandidf SELECT brand, LOG(numtuples.num/COUNT(brand)) 
+FROM autompg
+INNER JOIN numtuples
+GROUP BY brand
+
+/*model*/
+INSERT INTO modelidf SELECT model, LOG(numtuples.num/COUNT(model)) 
+FROM autompg
+INNER JOIN numtuples
+GROUP BY model
+
+/*type*/
+INSERT INTO typeidf SELECT type, LOG(numtuples.num/COUNT(type)) 
+FROM autompg
+INNER JOIN numtuples
+GROUP BY type
+
+/*origin*/
+INSERT INTO originidf SELECT origin, LOG(numtuples.num/COUNT(origin)) 
+FROM autompg
+INNER JOIN numtuples
+GROUP BY origin
+
+
+
+/*numerical attributes idf scores by formula (2) of the paper*/
+
+/*mpg*/
+/*h-value only temporary table*/
+CREATE TABLE mpgbandwidth(
+    bandwidth real
+);
+
+INSERT INTO mpgbandwidth 
+SELECT 1.06*STDEV(mpg)*POWER(numtuples.num, -0.2) AS bandwidth 
+FROM autompg
+INNER JOIN numtuples;
+
+/*see formula (2) of paper*/
+INSERT INTO mpgidf
+SELECT mpg1, LOG10(numtuples.num/summed) FROM (
+SELECT mpg1, SUM( EXP(-0.5 * POWER( (mpg2-mpg1)/mpgbandwidth.bandwidth , 2 ) ) ) AS summed
+FROM (SELECT DISTINCT mpg AS mpg1 FROM autompg), (SELECT mpg AS mpg2 FROM autompg)
+INNER JOIN mpgbandwidth
+GROUP BY mpg1)
+INNER JOIN numtuples;
+
+DROP TABLE mpgbandwidth;
+
+/*cilinders*/
+/*h-value only temporary table*/
+CREATE TABLE cilindersbandwidth(
+    bandwidth real
+);
+
+INSERT INTO cilindersbandwidth 
+SELECT 1.06*STDEV(cilinders)*POWER(numtuples.num, -0.2) AS bandwidth 
+FROM autompg
+INNER JOIN numtuples;
+
+/*see formula (2) of paper*/
+INSERT INTO cilindersidf
+SELECT cilinders1, LOG10(numtuples.num/summed) FROM (
+SELECT cilinders1, SUM( EXP(-0.5 * POWER( (cilinders2-cilinders1)/cilindersbandwidth.bandwidth , 2 ) ) ) AS summed
+FROM (SELECT DISTINCT cilinders AS cilinders1 FROM autompg), (SELECT cilinders AS cilinders2 FROM autompg)
+INNER JOIN cilindersbandwidth
+GROUP BY cilinders1)
+INNER JOIN numtuples;
+
+DROP TABLE cilindersbandwidth;
+
+/*displacement*/
+/*h-value only temporary table*/
+CREATE TABLE displacementbandwidth(
+    bandwidth real
+);
+
+INSERT INTO displacementbandwidth 
+SELECT 1.06*STDEV(displacement)*POWER(numtuples.num, -0.2) AS bandwidth 
+FROM autompg
+INNER JOIN numtuples;
+
+/*see formula (2) of paper*/
+INSERT INTO displacementidf
+SELECT displacement1, LOG10(numtuples.num/summed) FROM (
+SELECT displacement1, SUM( EXP(-0.5 * POWER( (displacement2-displacement1)/displacementbandwidth.bandwidth , 2 ) ) ) AS summed
+FROM (SELECT DISTINCT displacement AS displacement1 FROM autompg), (SELECT displacement AS displacement2 FROM autompg)
+INNER JOIN displacementbandwidth
+GROUP BY displacement1)
+INNER JOIN numtuples;
+
+DROP TABLE displacementbandwidth;
+
+/*horsepower*/
+/*h-value only temporary table*/
+CREATE TABLE horsepowerbandwidth(
+    bandwidth real
+);
+
+INSERT INTO horsepowerbandwidth 
+SELECT 1.06*STDEV(horsepower)*POWER(numtuples.num, -0.2) AS bandwidth 
+FROM autompg
+INNER JOIN numtuples;
+
+/*see formula (2) of paper*/
+INSERT INTO horsepoweridf
+SELECT horsepower1, LOG10(numtuples.num/summed) FROM (
+SELECT horsepower1, SUM( EXP(-0.5 * POWER( (horsepower2-horsepower1)/horsepowerbandwidth.bandwidth , 2 ) ) ) AS summed
+FROM (SELECT DISTINCT horsepower AS horsepower1 FROM autompg), (SELECT horsepower AS horsepower2 FROM autompg)
+INNER JOIN horsepowerbandwidth
+GROUP BY horsepower1)
+INNER JOIN numtuples;
+
+DROP TABLE horsepowerbandwidth;
+
+/*weight*/
+/*h-value only temporary table*/
+CREATE TABLE weightbandwidth(
+    bandwidth real
+);
+
+INSERT INTO weightbandwidth 
+SELECT 1.06*STDEV(weight)*POWER(numtuples.num, -0.2) AS bandwidth 
+FROM autompg
+INNER JOIN numtuples;
+
+/*see formula (2) of paper*/
+INSERT INTO weightidf
+SELECT weight1, LOG10(numtuples.num/summed) FROM (
+SELECT weight1, SUM( EXP(-0.5 * POWER( (weight2-weight1)/weightbandwidth.bandwidth , 2 ) ) ) AS summed
+FROM (SELECT DISTINCT weight AS weight1 FROM autompg), (SELECT weight AS weight2 FROM autompg)
+INNER JOIN weightbandwidth
+GROUP BY weight1)
+INNER JOIN numtuples;
+
+DROP TABLE weightbandwidth;
+
+/*acceleration*/
+/*h-value only temporary table*/
+CREATE TABLE accelerationbandwidth(
+    bandwidth real
+);
+
+INSERT INTO accelerationbandwidth 
+SELECT 1.06*STDEV(acceleration)*POWER(numtuples.num, -0.2) AS bandwidth 
+FROM autompg
+INNER JOIN numtuples;
+
+/*see formula (2) of paper*/
+INSERT INTO accelerationidf
+SELECT acceleration1, LOG10(numtuples.num/summed) FROM (
+SELECT acceleration1, SUM( EXP(-0.5 * POWER( (acceleration2-acceleration1)/accelerationbandwidth.bandwidth , 2 ) ) ) AS summed
+FROM (SELECT DISTINCT acceleration AS acceleration1 FROM autompg), (SELECT acceleration AS acceleration2 FROM autompg)
+INNER JOIN accelerationbandwidth
+GROUP BY acceleration1)
+INNER JOIN numtuples;
+
+DROP TABLE accelerationbandwidth;
+
+/*model_year*/
+/*h-value only temporary table*/
+CREATE TABLE model_yearbandwidth(
+    bandwidth real
+);
+
+INSERT INTO model_yearbandwidth 
+SELECT 1.06*STDEV(model_year)*POWER(numtuples.num, -0.2) AS bandwidth 
+FROM autompg
+INNER JOIN numtuples;
+
+/*see formula (2) of paper*/
+INSERT INTO model_yearidf
+SELECT model_year1, LOG10(numtuples.num/summed) FROM (
+SELECT model_year1, SUM( EXP(-0.5 * POWER( (model_year2-model_year1)/model_yearbandwidth.bandwidth , 2 ) ) ) AS summed
+FROM (SELECT DISTINCT model_year AS model_year1 FROM autompg), (SELECT model_year AS model_year2 FROM autompg)
+INNER JOIN model_yearbandwidth
+GROUP BY model_year1)
+INNER JOIN numtuples;
+
+DROP TABLE model_yearbandwidth;
 
