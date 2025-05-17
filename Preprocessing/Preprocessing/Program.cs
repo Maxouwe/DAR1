@@ -9,7 +9,6 @@ namespace Preprocessing
     internal class Program
     {
         static string metaConnectionString = @"Data Source=..\..\..\..\..\db\meta.db;Version=3";
-        static int numTuples;
 
         //delegate function type that we can use as callback function for reading tuples from a table
         public delegate void readFunc(SQLiteDataReader reader);
@@ -32,46 +31,15 @@ namespace Preprocessing
             //put the filled autompg table into the metadb
             executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\autompg.sql"));
 
-            //count the amount of tuples in autompg
-            readTuples(metaConnection,
-                @"SELECT COUNT(*) AS amountOfTuples FROM autompg",
-                delegate (SQLiteDataReader reader)
-                {
-                    numTuples = reader.GetInt32(reader.GetOrdinal("amountOfTuples"));
-                }
-                );
-
             //create all qf and idf tables in the metadb
             executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metadb.txt"));
-
-            //put categorical and numerical idf in the idftables
-            collectIDF(metaConnection);
-
-            
-            //calculate all QF values from the workload
-            collectQF(metaConnection);
-
-            //retrieve the qf and idf from their tables and fill the qfidf tables inside the metadb
-            //again: only categorical attributes will have a qfidf table because the idf of numerical attributes is not known yet
+         
+            //execute the sql instructions from metaload.txt
+            //this file fills all categorical and numerical idf table
             executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metaload.txt"));
 
-            //calculate all h values and put them in the table "attributebandwidth"
-            calcBandwidthH(metaConnection, "mpg");
-            calcBandwidthH(metaConnection, "cylinders");
-            calcBandwidthH(metaConnection, "displacement");
-            calcBandwidthH(metaConnection, "horsepower");
-            calcBandwidthH(metaConnection, "weight");
-            calcBandwidthH(metaConnection, "acceleration");
-            calcBandwidthH(metaConnection, "model_year");
-            calcBandwidthH(metaConnection, "origin");
-
-            //delete all tables that were used for intermediate results 
-            executeSQL(metaConnection, @"DROP TABLE brandidf");
-            executeSQL(metaConnection, @"DROP TABLE modelidf");
-            executeSQL(metaConnection, @"DROP TABLE typeidf");
-            executeSQL(metaConnection, @"DROP TABLE brandqf");
-            executeSQL(metaConnection, @"DROP TABLE modelqf");
-            executeSQL(metaConnection, @"DROP TABLE typeqf");
+            //calculate all QF values from the workload
+            collectQF(metaConnection);
 
             metaConnection.Close();
         }
@@ -170,37 +138,6 @@ namespace Preprocessing
                 }
                 );
         }
-
-        //calc the h value in the idf numerical attribute score function and put them in a table
-        static void calcBandwidthH(SQLiteConnection connection, string attribute)
-        {
-            executeSQL(connection, String.Format(@"INSERT INTO {0}bandwidth SELECT 1.06*STDEV({0})*POWER({1}, -0.2) AS bandwidth FROM autompg", attribute, numTuples));
-        }
-
-        static void collectIDF(SQLiteConnection connection)
-        {
-
-            //categorical attributes
-
-            //brand
-            executeSQL(connection, String.Format(@"INSERT INTO brandidf SELECT brand, LOG({0}/COUNT(brand)) FROM autompg GROUP BY brand", numTuples));
-
-            //model
-            executeSQL(connection, String.Format(@"INSERT INTO modelidf SELECT model, LOG({0}/COUNT(model)) FROM autompg GROUP BY model", numTuples));
-
-            //type
-            executeSQL(connection, String.Format(@"INSERT INTO typeidf SELECT type, LOG({0}/COUNT(type)) FROM autompg GROUP BY type", numTuples));
-
-            //origin
-            executeSQL(connection, String.Format(@"INSERT INTO originidf SELECT origin, LOG({0}/COUNT(origin)) FROM autompg GROUP BY origin", numTuples));
-
-
-
-            //numerical attributes
-
-            //
-        }
-
 
         //execute the sql statements from given by the string
         //using the db file signified by the dbConnection

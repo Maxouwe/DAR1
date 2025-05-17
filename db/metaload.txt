@@ -12,25 +12,25 @@ FROM autompg;
 INSERT INTO brandidf SELECT brand, LOG(numtuples.num/COUNT(brand)) 
 FROM autompg
 INNER JOIN numtuples
-GROUP BY brand
+GROUP BY brand;
 
 /*model*/
 INSERT INTO modelidf SELECT model, LOG(numtuples.num/COUNT(model)) 
 FROM autompg
 INNER JOIN numtuples
-GROUP BY model
+GROUP BY model;
 
 /*type*/
 INSERT INTO typeidf SELECT type, LOG(numtuples.num/COUNT(type)) 
 FROM autompg
 INNER JOIN numtuples
-GROUP BY type
+GROUP BY type;
 
 /*origin*/
 INSERT INTO originidf SELECT origin, LOG(numtuples.num/COUNT(origin)) 
 FROM autompg
 INNER JOIN numtuples
-GROUP BY origin
+GROUP BY origin;
 
 
 
@@ -58,27 +58,27 @@ INNER JOIN numtuples;
 
 DROP TABLE mpgbandwidth;
 
-/*cilinders*/
+/*cylinders*/
 /*h-value only temporary table*/
-CREATE TABLE cilindersbandwidth(
+CREATE TABLE cylindersbandwidth(
     bandwidth real
 );
 
-INSERT INTO cilindersbandwidth 
-SELECT 1.06*STDEV(cilinders)*POWER(numtuples.num, -0.2) AS bandwidth 
+INSERT INTO cylindersbandwidth 
+SELECT 1.06*STDEV(cylinders)*POWER(numtuples.num, -0.2) AS bandwidth 
 FROM autompg
 INNER JOIN numtuples;
 
 /*see formula (2) of paper*/
-INSERT INTO cilindersidf
-SELECT cilinders1, LOG10(numtuples.num/summed) FROM (
-SELECT cilinders1, SUM( EXP(-0.5 * POWER( (cilinders2-cilinders1)/cilindersbandwidth.bandwidth , 2 ) ) ) AS summed
-FROM (SELECT DISTINCT cilinders AS cilinders1 FROM autompg), (SELECT cilinders AS cilinders2 FROM autompg)
-INNER JOIN cilindersbandwidth
-GROUP BY cilinders1)
+INSERT INTO cylindersidf
+SELECT cylinders1, LOG10(numtuples.num/summed) FROM (
+SELECT cylinders1, SUM( EXP(-0.5 * POWER( (cylinders2-cylinders1)/cylindersbandwidth.bandwidth , 2 ) ) ) AS summed
+FROM (SELECT DISTINCT cylinders AS cylinders1 FROM autompg), (SELECT cylinders AS cylinders2 FROM autompg)
+INNER JOIN cylindersbandwidth
+GROUP BY cylinders1)
 INNER JOIN numtuples;
 
-DROP TABLE cilindersbandwidth;
+DROP TABLE cylindersbandwidth;
 
 /*displacement*/
 /*h-value only temporary table*/

@@ -41,12 +41,12 @@ CREATE TABLE typeqf(
 CREATE TABLE originidf(
     origin text,
     idf real,
-    PRIMARY KEY(type)
+    PRIMARY KEY(origin)
 );
 CREATE TABLE originqf(
     origin text,
     qf real,
-    PRIMARY KEY(type)
+    PRIMARY KEY(origin)
 );
 
 /*mpg*/
