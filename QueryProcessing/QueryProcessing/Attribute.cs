@@ -38,11 +38,19 @@ namespace QueryProcessing
         protected abstract void calculateIDF();
         public abstract float getIDF();
 
+        //given de attribute value of a tuple from the database return the qfsimilarityscore
+        public abstract float calculateQFSimilarity(string tupleAttributeVal);
+
     }
     class NumericalAttribute : Attribute
     {
         public NumericalAttribute(string name, string qval) : base(name, qval) { }
 
+        //implements formula (3) where IDF(q) is replaced by QF(q)
+        public override float calculateQFSimilarity(string tupleAttributeVal)
+        {
+            return (float)Math.Exp(-0.5*Math.Pow(double.Parse(tupleAttributeVal) -double.Parse(_queryValue), 2)) * getQF();
+        }
         protected override void calculateQF()
         {
             //try to get qf value of queryvalue from the qf table
@@ -202,6 +210,17 @@ namespace QueryProcessing
         public CategoricalAttribute(string name, string qval) : base(name, qval) { }
 
 
+        public override float calculateQFSimilarity(string tupleAttributeVal)
+        {
+            if (tupleAttributeVal == _queryValue)
+            {
+                return getQF();
+            }
+            else
+            {
+                return 0;
+            }
+        }
         public override float getQF()
         {
             if (!qfCalculated)
