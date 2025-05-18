@@ -11,7 +11,7 @@ namespace QueryProcessing
     //this class is made to remove some boilerplate code
     internal class DBManipulations
     {
-        static string connectionString = @"Data Source=..\..\..\..\..\db\meta.db;Version=3";
+        static string connectionString = @"Data Source=..\..\..\..\..\db\metadata.db;Version=3";
 
         public delegate void readFunc(SQLiteDataReader reader);
 

@@ -16,7 +16,11 @@ namespace QueryProcessing
         private Query _query;
         private int _k;
 
-
+        public QueryProcessor(Query query, int k) 
+        {
+            _k = k;
+            _query = query;
+        }
        
     }
 }

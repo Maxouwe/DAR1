@@ -37,14 +37,13 @@ CREATE TABLE typeqf(
 );
 
 /*origin*/
-/*origin is integer in autompg, but we consider it categorical and make it text for programming convenience*/
 CREATE TABLE originidf(
-    origin text,
+    origin integer,
     idf real,
     PRIMARY KEY(origin)
 );
 CREATE TABLE originqf(
-    origin text,
+    origin integer,
     qf real,
     PRIMARY KEY(origin)
 );
@@ -69,7 +68,7 @@ CREATE TABLE cylindersidf(
 );
 CREATE TABLE cylindersqf(
     cylinders integer,
-    idf real,
+    qf real,
     PRIMARY KEY(cylinders)
 );
 

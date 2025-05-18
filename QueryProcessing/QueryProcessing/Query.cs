@@ -12,5 +12,10 @@ namespace QueryProcessing
     class Query
     {
         public List<Attribute> terms { get; }
+
+        public Query(List<Attribute> terms)
+        {
+            this.terms = terms;
+        }
     }
 }

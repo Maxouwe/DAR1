@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Data.SQLite;
 using QueryProcessing;
+using System.Runtime.CompilerServices;
+using System.Data.Common;
 
 namespace QueryProcessing
 {
@@ -25,7 +27,7 @@ namespace QueryProcessing
         protected float qf;
         protected float idf;
 
-        public Attribute(string name, string queryValue, string dbConnectionString)
+        public Attribute(string name, string queryValue)
         {
             attributeName = name;
             _queryValue = queryValue;
@@ -39,45 +41,37 @@ namespace QueryProcessing
     }
     class NumericalAttribute : Attribute
     {
-        public NumericalAttribute(string name, string qval, string dbString) : base(name, qval, dbString) { }
+        public NumericalAttribute(string name, string qval) : base(name, qval) { }
 
         protected override void calculateQF()
         {
             //try to get qf value of queryvalue from the qf table
-            bool qfValFound = false;
-            float qf;
-
+            bool valFound = false;
+    
             DBManipulations.readTuples(
-                String.Format("@SELECT qf, COUNT(*) AS c FROM {0}qf WHERE {0} = {1}", attributeName, _queryValue),
+                String.Format(@"SELECT qf FROM {0}qf WHERE {0} = {1}", attributeName, _queryValue),
                 delegate (SQLiteDataReader reader)
                 {
                     //if there exists a tuple with value = queryvalue
-                    if (reader.GetInt32(reader.GetOrdinal("c")) == 1)
+                    if (reader.GetFloat(reader.GetOrdinal("qf")) != null)
                     {
-                        qfValFound = true;
+                        valFound = true;
                         qf = reader.GetFloat(reader.GetOrdinal("qf"));
                     }
                 }
                 );
 
-            //if not then get two nearest values l and u, l < queryValue < u and their qf values
-            DBManipulations.readTuples(
-                String.Format("@SELECT qf, COUNT(*) AS c FROM {0}qf WHERE {0} = {1}", attributeName, _queryValue),
-                delegate (SQLiteDataReader reader)
-                {
-                    //if there exists a tuple with value = queryvalue
-                    if (reader.GetInt32(reader.GetOrdinal("c")) == 1)
-                    {
-                        qfValFound = true;
-                        qf = reader.GetFloat(reader.GetOrdinal("qf"));
-                    }
-                }
-                );
-            //then interpolate between these two qf values
+            //if not then get two nearest values l and u to interpolate qf(queryValue)
+            if (!valFound)
+            {
+                ((float, float), (float, float)) linePoints = findLinePointsQF();
+
+                qf = interpolate(linePoints.Item1.Item1, linePoints.Item1.Item2, linePoints.Item2.Item1, linePoints.Item2.Item2);
+            }
             qfCalculated = true;
         }
 
-        public float getQF()
+        public override float getQF()
         {
             if (!qfCalculated)
             {
@@ -89,16 +83,107 @@ namespace QueryProcessing
                 return qf;
             }
         }
+        //finds two nearest values l and u to queryvalue used for interpolation of qf(queryval)
+        private ((float, float), (float, float)) findLinePointsQF()
+        {
+            (float, float)[] lu = new (float, float)[2];
+            int luInd = 0;
+            //find two closest values to queryvalue
+            DBManipulations.readTuples(
+            String.Format(
+                @"SELECT {0}, qf, abs({1} - {0}) AS dif FROM {0}qf ORDER BY dif LIMIT 2",
+                attributeName, _queryValue),
+            delegate (SQLiteDataReader reader)
+            {
+                //even if attribute value is integer GetFloat() still works, should be fine
+                if (reader.GetFloat(reader.GetOrdinal(attributeName)) != null)
+                {
+                    lu[luInd] = (reader.GetFloat(reader.GetOrdinal(attributeName)), reader.GetFloat(reader.GetOrdinal("qf")));
+                    luInd++;
+                }
+            }
+            );
 
+            return (lu[0], lu[1]);
+        }
+
+        //finds two nearest values l and u to queryvalue used for interpolation of idf(queryval)
+        private ((float, float), (float, float)) findLinePointsIDF()
+        {
+            (float, float)[] lu = new (float, float)[2];
+            int luInd = 0;
+            //find two closest values to queryvalue
+            DBManipulations.readTuples(
+            String.Format(
+                @"SELECT {0}, idf, abs({1} - {0}) AS dif FROM {0}idf ORDER BY dif LIMIT 2",
+                attributeName, _queryValue),
+            delegate (SQLiteDataReader reader)
+            {
+                //even is attribute value is integer GetFloat() still works, should be fine
+                if (reader.GetFloat(reader.GetOrdinal(attributeName)) != null)
+                {
+                    //even if attribute value is integer GetFloat() still works, should be fine
+                    if (reader.GetFloat(reader.GetOrdinal(attributeName)) != null)
+                    {
+                        lu[luInd] = (reader.GetFloat(reader.GetOrdinal(attributeName)), reader.GetFloat(reader.GetOrdinal("idf")));
+                        luInd++;
+                    }
+
+                }
+            }
+            );
+
+            return (lu[0], lu[1]);
+        }
+        //linear interpolation of f(queryval) between two points
+        //(l, fL) and (u, fU)
+        //both used for f = QF and f = IDF
+        private float interpolate(float l, float fL, float u, float fU)
+        {
+            //y = ax + b
+            //where QF(x) = y
+            float a = 0;
+            float b = 0;
+            if (fL == fU)
+            {
+                return fL;
+            }
+            else
+            {
+                a = (fU - fL) / (u - l);
+                b = fL - a * l;
+                return a * float.Parse(_queryValue) + b;
+            }
+        }
         protected override void calculateIDF()
         {
-            //if queryvalue exists in db then get idf from idf table
-            //if not then get two nearest values l and u, l < queryValue < u and their idf values
-            //then interpolate between these two idf values
+            //try to get idf value of queryvalue from the idf table
+            bool valFound = false;
+
+            DBManipulations.readTuples(
+                String.Format(@"SELECT idf FROM {0}idf WHERE {0} = {1}", attributeName, _queryValue),
+                delegate (SQLiteDataReader reader)
+                {
+                    //if there exists a tuple with value = queryvalue
+                    if (reader.GetFloat(reader.GetOrdinal("idf")) != null)
+                    {
+                        valFound = true;
+                        idf = reader.GetFloat(reader.GetOrdinal("idf"));
+                    }
+                }
+                );
+
+            //if not then get two nearest values l and u to interpolate idf(queryValue) values
+            if (!valFound)
+            {
+                ((float, float), (float, float)) linePoints = findLinePointsIDF();
+
+                idf = interpolate(linePoints.Item1.Item1, linePoints.Item1.Item2, linePoints.Item2.Item1, linePoints.Item2.Item2);
+            }
             idfCalculated = true;
         }
 
-        public float getIDF()
+        public override float getIDF()
         {
             if (!idfCalculated)
             {
@@ -114,7 +199,74 @@ namespace QueryProcessing
 
     class CategoricalAttribute : Attribute
     {
-        public CategoricalAttribute(string name, string qval, string dbString) : base(name, qval, dbString) { }
+        public CategoricalAttribute(string name, string qval) : base(name, qval) { }
+
+
+        public override float getQF()
+        {
+            if (!qfCalculated)
+            {
+                calculateQF();
+                return qf;
+            }
+            else
+            {
+                return qf;
+            }
+        }
+
+        protected override void calculateQF()
+        {
+            DBManipulations.readTuples(
+                String.Format(@"SELECT qf FROM {0}qf WHERE {0} = {1}", attributeName, _queryValue),
+                delegate (SQLiteDataReader reader)
+                {
+                    //if there exists a tuple with value = queryvalue
+                    if (reader.GetFloat(reader.GetOrdinal("qf")) != null)
+                    {
+                        qf = reader.GetFloat(reader.GetOrdinal("qf"));
+                    }
+                    else
+                    {
+                        //lowest possible qf for this workload
+                        qf = 0.00390625f;
+                    }
+                }
+                );
+        }
+        public override float getIDF()
+        {
+            if (!idfCalculated)
+            {
+                calculateIDF();
+                return idf;
+            }
+            else
+            {
+                return idf;
+            }
+        }
+
+        protected override void calculateIDF()
+        {
+            DBManipulations.readTuples(
+                String.Format(@"SELECT idf FROM {0}idf WHERE {0} = {1}", attributeName, _queryValue),
+                delegate (SQLiteDataReader reader)
+                {
+                    //if there exists a tuple with value = queryvalue
+                    if (reader.GetFloat(reader.GetOrdinal("idf")) != null)
+                    {
+                        idf = reader.GetFloat(reader.GetOrdinal("idf"));
+                    }
+                    else
+                    {
+                        //not important because when comparing to tuples the idf-similarity will be 0 regarding this attribute
+                        //because it appears there are no tuples with attribute value = queryvalue
+                        idf = 2.40654018f;
+                    }
+                }
+                );
+        }
     }
 }
 

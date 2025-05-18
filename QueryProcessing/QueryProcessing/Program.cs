@@ -12,7 +12,7 @@ namespace QueryProcessing
 
         static void Main(string[] args)
         {
-
+            
         }
         static QueryProcessor? parseInput(string input)
         {
@@ -20,8 +20,7 @@ namespace QueryProcessing
 
             string[] subqueries = input.Trim().Split(',');
 
-            List<NumericalAttribute> numTerms = new List<NumericalAttribute>();
-            List<CategoricalAttribute> catTerms = new List<CategoricalAttribute>();
+            List<Attribute> terms = new List<Attribute>();
 
             for (int i = 0; i < subqueries.Length; i++)
             {
@@ -47,17 +46,17 @@ namespace QueryProcessing
                 //if the value is not in quotes i.e. it is a numerical attribute
                 else if (value[0] != '\'')
                 {
-                    numTerms.Add(new NumericalAttribute(attribute, float.Parse(value), numTuples, connectionString));
+                    terms.Add(new NumericalAttribute(attribute, value));
                 }
 
                 //if categorical attribute
                 else
                 {
-                    catTerms.Add(new CategoricalAttribute(attribute, value));
+                    terms.Add(new CategoricalAttribute(attribute, value));
                 }
             }
 
-            return new QueryProcessor(new Query(numTerms, catTerms), k, connectionString);
+            return new QueryProcessor(new Query(terms), k);
         }
 
 
