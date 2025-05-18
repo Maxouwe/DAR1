@@ -9,109 +9,112 @@ using QueryProcessing;
 
 namespace QueryProcessing
 {
-    class NumericalAttribute
+    abstract class Attribute
     {
-        //h = sigma*n^(-0.2), taken from the paper
-        public float h;
         public string attributeName { get; }
-        public float queryValue { get; }
-        //number of tuples in autompg, used internally for computations
-        private int _numTuples;
-        public NumericalAttribute(string name, float qval, int numTuples, string connectionString)
+
+        //even numerical queryvalues are strings yes
+        public string _queryValue { get; }
+
+        //bools saying wether qf,idf have been calculated
+        protected bool qfCalculated = false;
+        protected bool idfCalculated = false;
+
+        //containing the qf and idf values, not the qf,idf similarities
+        //just the qf(queryvalue) and idf(queryvalue) values
+        protected float qf;
+        protected float idf;
+
+        public Attribute(string name, string queryValue, string dbConnectionString)
         {
             attributeName = name;
-            queryValue = qval;
-            _numTuples = numTuples;
+            _queryValue = queryValue;
+        }
 
-            SQLiteUtilities.readTuples(connectionString, String.Format(@"SELECT bandwidth FROM {0}bandwidth", name),
+        protected abstract void calculateQF();
+        public abstract float getQF(); 
+        protected abstract void calculateIDF();
+        public abstract float getIDF();
+
+    }
+    class NumericalAttribute : Attribute
+    {
+        public NumericalAttribute(string name, string qval, string dbString) : base(name, qval, dbString) { }
+
+        protected override void calculateQF()
+        {
+            //try to get qf value of queryvalue from the qf table
+            bool qfValFound = false;
+            float qf;
+
+            DBManipulations.readTuples(
+                String.Format("@SELECT qf, COUNT(*) AS c FROM {0}qf WHERE {0} = {1}", attributeName, _queryValue),
                 delegate (SQLiteDataReader reader)
                 {
-                    this.h = reader.GetFloat(reader.GetOrdinal("bandwidth"));
+                    //if there exists a tuple with value = queryvalue
+                    if (reader.GetInt32(reader.GetOrdinal("c")) == 1)
+                    {
+                        qfValFound = true;
+                        qf = reader.GetFloat(reader.GetOrdinal("qf"));
+                    }
                 }
                 );
 
-
-        }
-
-        //creates and fills an QFIDF score table for each attribute, and puts them in the database
-        //for each value of attribute A in autompg we create a tuple having a field:
-        //           -for that attribute value
-        //           -for the qfidf similarity score for that attribute value t and the value specified in the query q
-        //where qfidfsimilarity(t, q) = qfsimilarity(t, q) * idfsimilarity(t, q)
-        public void createQFIDFTable(string connectionString)
-        {
-            //join the QFSimilarityTable with the IDFSimilarityTable ON QFTable.this.attributeName = IDFTable.this.attributeName
-            //and then multiply the columns
-
-            //create the qfidf table
-            SQLiteUtilities.executeSQL(connectionString, String.Format(@"CREATE TABLE {0}qfidf({0} real, qfidf real, PRIMARY KEY({0}))", attributeName));
-
-            createIDFSimilarityTable(connectionString);
-
-            //fill the qfidf table by selecting from the qf and idf table and multiplying the values for each attribute value
-            SQLiteUtilities.executeSQL(connectionString,
-                String.Format(@"INSERT INTO {0}qfidf SELECT {0}qf.{0}, {0}qf.qf * {0}idf.idf FROM {0}qf INNER JOIN {0}idf ON {0}qf.{0} = {0}idf.{0}", attributeName
-                ));
-        }
-
-        //to be called at the end of a query
-        //we drop de idf and qfidf tables because they are different for each query
-        public void deleteTables(string connectionString)
-        {
-            SQLiteUtilities.executeSQL(connectionString, String.Format(@"DROP TABLE IF EXISTS {0}idf; DROP TABLE IF EXISTS {0}qfidf", attributeName));
-        }
-
-        //using calcTermIDF as IDF(q), calculate the IDFSimilarityTable
-        //idfsimilarity(t, q) = e^(-0.5 * ((t - q)/h)^2) * IDF(q)
-        private void createIDFSimilarityTable(string connectionString)
-        {
-            //Create the idf table
-            SQLiteUtilities.executeSQL(connectionString, String.Format(@"CREATE TABLE {0}idf({0} real, idf real, PRIMARY KEY({0}))", attributeName));
-
-            //calculate idf(q)
-            float idfq = calcTermIDF(connectionString);
-
-            //fill the table
-            //the DISTINCT keyword is important, because each value for the attribute might occur more often in autompg
-            //but the idf table only needs one idf per distinct value
-            //prevents uniqueness constraint fails 
-            SQLiteUtilities.executeSQL(connectionString,
-                String.Format(@"INSERT INTO {0}idf SELECT {0}, EXP(-0.5 * POW( ({0}-{1})/{2} , 2)) * {3} FROM (SELECT DISTINCT {0} FROM autompg)", attributeName, queryValue, h, idfq));
-
-        }
-
-        //IDF(q) = log(_numTuples/SUM(e^((-0.5*(ti-t)/h)^2)
-        //where ti are the distinct values for this attribute
-        private float calcTermIDF(string connectionString)
-        {
-            float idfq = 0;
-
-            SQLiteUtilities.readTuples(connectionString,
-                String.Format(@"SELECT LOG({0}/SUM( EXP(-0.5 * POW( (val-{2})/{3} , 2 ) ) ) ) AS idfq FROM (SELECT DISTINCT {1} AS val FROM autompg)", _numTuples, attributeName, queryValue, h),
+            //if not then get two nearest values l and u, l < queryValue < u and their qf values
+            DBManipulations.readTuples(
+                String.Format("@SELECT qf, COUNT(*) AS c FROM {0}qf WHERE {0} = {1}", attributeName, _queryValue),
                 delegate (SQLiteDataReader reader)
                 {
-                    try
+                    //if there exists a tuple with value = queryvalue
+                    if (reader.GetInt32(reader.GetOrdinal("c")) == 1)
                     {
-                        idfq = reader.GetFloat(reader.GetOrdinal("idfq"));
+                        qfValFound = true;
+                        qf = reader.GetFloat(reader.GetOrdinal("qf"));
                     }
-                    catch
-                    {
-                        Console.WriteLine("please dont supply absurdly small or big values for a certain attribute");
-                    }
-                });
-            return idfq;
+                }
+                );
+            //then interpolate between these two qf values
+            qfCalculated = true;
+        }
+
+        public float getQF()
+        {
+            if (!qfCalculated)
+            {
+                calculateQF();
+                return qf;
+            }
+            else
+            {
+                return qf;
+            }
+        }
+
+        protected override void calculateIDF()
+        {
+            //if queryvalue exists in db then get idf from idf table
+            //if not then get two nearest values l and u, l < queryValue < u and their idf values
+            //then interpolate between these two idf values
+            idfCalculated = true;
+        }
+
+        public float getIDF()
+        {
+            if (!idfCalculated)
+            {
+                calculateIDF();
+                return idf;
+            }
+            else
+            {
+                return idf;
+            }
         }
     }
 
-    class CategoricalAttribute
+    class CategoricalAttribute : Attribute
     {
-        public string queryValue { get; }
-        public string attributeName { get; }
-        public CategoricalAttribute(string name, string qval)
-        {
-            attributeName = name;
-            queryValue = qval;
-        }
+        public CategoricalAttribute(string name, string qval, string dbString) : base(name, qval, dbString) { }
     }
 }
 

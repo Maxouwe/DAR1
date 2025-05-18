@@ -9,13 +9,15 @@ using System.Threading.Tasks;
 namespace QueryProcessing
 {
     //this class is made to remove some boilerplate code
-    internal class SQLiteUtilities
+    internal class DBManipulations
     {
+        static string connectionString = @"Data Source=..\..\..\..\..\db\meta.db;Version=3";
+
         public delegate void readFunc(SQLiteDataReader reader);
 
         //execute the sql statements from given by the string
         //using the db file signified by the dbConnection
-        public static void executeSQL(string connectionString, string sqlStatements)
+        public static void executeSQL(string sqlStatements)
         {
             using (SQLiteConnection connection = new SQLiteConnection(connectionString))
             {
@@ -27,13 +29,12 @@ namespace QueryProcessing
                 }
                 connection.Close();
             }
-
         }
 
         //reads tuples from a database 
         //sqlStatement should be a SELECT statement
         //supply a delegate function to decide what to do with each tuple
-        public static void readTuples(string connectionString, string sqlStatement, readFunc f)
+        public static void readTuples(string sqlStatement, readFunc f)
         {
             using (SQLiteConnection connection = new SQLiteConnection(connectionString))
             {
@@ -52,6 +53,19 @@ namespace QueryProcessing
                 }
                 connection.Close();
             }
+        }
+
+        //example of how to use readTuples
+        private int readTuplesExample()
+        {
+            int count = 0;
+            DBManipulations.readTuples(@"SELECT COUNT(*) AS c FROM topk",
+                delegate (SQLiteDataReader reader)
+                {
+                    count = reader.GetInt32(reader.GetOrdinal("c"));
+                }
+                );
+            return count;
         }
     }
 }

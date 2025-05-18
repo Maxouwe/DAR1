@@ -18,7 +18,8 @@ S(tk, qk) = QF(qk)*IDF(qk) if tk = qk
 S(tk, qk) = 0 if tk != qk
 
 Numerical:
-S(tk, qk) = zie formule (3) in de paper
+S(tk, qk) = QF(qk)*IDF(qk) 
+IDF(qk) is hier formule (3) er staat S(t, q) maar laat dat IDF(qk) zijn.
 
 Dit is de hoofdlijn van het probleem er zijn nog wat details waar ik later verder op in ga.
 
@@ -56,6 +57,11 @@ Bereken alle IDF(horsepower = 20), IDF(horsepower = 20) etc. allemaal uit met
 formule (2).
 En dan tijdens query time als horspower = 21 wordt gevraagd interpoleer je tussen
 IDF(hp = 20) en IDF(hp = 22).
+Hetzelfde geldt voor qf waardes.
+Stel we weten van te voren al dat QF(hp = 20) = 3, QF(hp = 22) = 4. En de query is QF(hp = 21)
+dan interpoleren we tussen QF(hp = 20) en QF(hp = 22). Vervang in formule (3) IDF(q) met QF(q).
+Het is deze waarde die we interpoleren. En om dan de qf-similarity tussen t en q te berekenen
+vermenigvuldigen we de geinterpoleerde qf(q) met die e macht die je ziet in formule(3).
 
 Het idee van de opdracht:
 Je hebt twee fases, de preprocessing-fase en de query-fase.
@@ -69,7 +75,7 @@ Wat als er many answers zijn:
 Het kan zijn dat er meer dan k tuples zijn die dezelfde similarity score hebben.
 Stel de query is merk = nissan dan heb je natuurlijk heel veel tuples die dezelfde similarity score hebben.
 Als eerste kunnen we naar alle attributen kijken die niet in de query worden vernoemd.
-De tuples met hoogste QF score voor deze missende attributen krijgen hoogste score. (Zie sectie 5).
+De tuples met hoogste QFIDF score voor deze missende attributen krijgen hoogste score. (Zie sectie 5).
 Als dan nog te veel tuples met zelfde score zijn moeten we de eisen zelf strenger maken op basis van een zelf verzonnen functie.
 We zouden kunnen zeggen dat zuinigere autos voorkeur hebben. We moeten zelf even een score functie op basis van 
 autokenmerken bedenken, maar hier hoeven we niet heel lang over na te denken. Zolang de functie maar sterk onderscheidend is.
