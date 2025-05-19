@@ -41,11 +41,18 @@ namespace QueryProcessing
         //given de attribute value of a tuple from the database return the qfsimilarityscore
         public abstract float calculateQFSimilarity(string tupleAttributeVal);
 
+        //given de attribute value of a tuple from the database return the idfsimilarityscore
+        public abstract float calculateIDFSimilarity(string tupleAttributeVal);
     }
     class NumericalAttribute : Attribute
     {
         public NumericalAttribute(string name, string qval) : base(name, qval) { }
 
+        //implements formula (3)
+        public override float calculateIDFSimilarity(string tupleAttributeVal)
+        {
+            return (float)Math.Exp(-0.5 * Math.Pow(double.Parse(tupleAttributeVal) - double.Parse(_queryValue), 2)) * getIDF();
+        }
         //implements formula (3) where IDF(q) is replaced by QF(q)
         public override float calculateQFSimilarity(string tupleAttributeVal)
         {
@@ -75,6 +82,8 @@ namespace QueryProcessing
                 ((float, float), (float, float)) linePoints = findLinePointsQF();
 
                 qf = interpolate(linePoints.Item1.Item1, linePoints.Item1.Item2, linePoints.Item2.Item1, linePoints.Item2.Item2);
+                qf = Math.Max(qf, 0);
+                qf = Math.Min(qf, 1);
             }
             qfCalculated = true;
         }
@@ -187,6 +196,8 @@ namespace QueryProcessing
                 ((float, float), (float, float)) linePoints = findLinePointsIDF();
 
                 idf = interpolate(linePoints.Item1.Item1, linePoints.Item1.Item2, linePoints.Item2.Item1, linePoints.Item2.Item2);
+                
+                idf = Math.Max(idf, 0);
             }
             idfCalculated = true;
         }
@@ -209,16 +220,55 @@ namespace QueryProcessing
     {
         public CategoricalAttribute(string name, string qval) : base(name, qval) { }
 
-
-        public override float calculateQFSimilarity(string tupleAttributeVal)
+        public override float calculateIDFSimilarity(string tupleAttributeVal)
         {
-            if (tupleAttributeVal == _queryValue)
+            if(attributeName != "origin")
             {
-                return getQF();
+                if ("'" + tupleAttributeVal + "'" == _queryValue)
+                {
+                    return getIDF();
+                }
+                else
+                {
+                    return 0;
+                }
             }
             else
             {
-                return 0;
+                if (tupleAttributeVal == _queryValue)
+                {
+                    return getIDF();
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+        }
+
+        public override float calculateQFSimilarity(string tupleAttributeVal)
+        {
+            if (attributeName != "origin")
+            {
+                if ("'" + tupleAttributeVal + "'" == _queryValue)
+                {
+                    return getQF();
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            else
+            {
+                if (tupleAttributeVal == _queryValue)
+                {
+                    return getQF();
+                }
+                else
+                {
+                    return 0;
+                }
             }
         }
         public override float getQF()
