@@ -13,10 +13,10 @@ namespace QueryProcessing
 
     class QueryProcessor
     {
-        private Query _query;
+        private List<Attribute> _query;
         private int _k;
 
-        public QueryProcessor(Query query, int k) 
+        public QueryProcessor(List<Attribute> query, int k) 
         {
             _k = k;
             _query = query;

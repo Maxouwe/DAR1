@@ -66,7 +66,7 @@ namespace QueryProcessing
                 }
             }
 
-            return new QueryProcessor(new Query(terms), k);
+            return new QueryProcessor(terms, k);
         }
 
 
