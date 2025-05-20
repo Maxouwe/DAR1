@@ -54,6 +54,38 @@ namespace QueryProcessing
                 connection.Close();
             }
         }
+        //without connectionOpen() and connectionClose()
+        //useful for nesting sql operations
+        //nesting with readTuples is not possible because you can only have one connection open for the DB
+        public static void readTuplesNoConnection(SQLiteConnection connection, string sqlStatement, readFunc f)
+        {
+            using (SQLiteCommand command = new SQLiteCommand(connection))
+            {
+                command.CommandText = sqlStatement;
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    //for each found tuple perform the callback function f
+                    while (reader.Read())
+                    {
+                        f(reader);
+                    }
+                }
+            }
+        }
+        //same as readtuplenoconnection but for executesql
+        public static void executeSQLNoConnection(SQLiteConnection connection, string sqlStatements)
+        {
+            using (SQLiteCommand command = new SQLiteCommand(connection))
+            {
+                command.CommandText = sqlStatements;
+                command.ExecuteNonQuery();
+            }
+        }
+
+
+
+
+
 
         //example of how to use readTuples
         private int readTuplesExample()
@@ -66,6 +98,34 @@ namespace QueryProcessing
                 }
                 );
             return count;
+        }
+
+        //example of how to use readTuplesNoConnection
+        private int readTuplesNoConnectionExample()
+        {
+            int count = 0;
+            using (SQLiteConnection connection = new SQLiteConnection(connectionString))
+            {
+                connection.Open();
+                DBManipulations.readTuplesNoConnection(connection, @"SELECT COUNT(*) AS c FROM topk",
+                delegate (SQLiteDataReader reader)
+                {
+                    count = reader.GetInt32(reader.GetOrdinal("c"));
+
+                    //nesting is now possible
+                    //no oneconnectionperdatabase error anymore with this
+                    DBManipulations.readTuplesNoConnection(connection, @"SELECT COUNT(*) AS c FROM topk",
+                    delegate (SQLiteDataReader reader)
+                    {
+                        count+= reader.GetInt32(reader.GetOrdinal("c"));
+                    }
+                    );
+                }
+                );
+                connection.Close();
+                return count;
+            }
+                
         }
     }
 }

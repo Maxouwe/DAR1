@@ -75,7 +75,7 @@ Wat als er many answers zijn:
 Het kan zijn dat er meer dan k tuples zijn die dezelfde similarity score hebben.
 Stel de query is merk = nissan dan heb je natuurlijk heel veel tuples die dezelfde similarity score hebben.
 Als eerste kunnen we naar alle attributen kijken die niet in de query worden vernoemd.
-De tuples met hoogste QFIDF score voor deze missende attributen krijgen hoogste score. (Zie sectie 5).
+De tuples met hoogste QF score voor deze missende attributen krijgen hoogste score. (Zie sectie 5).
 Als dan nog te veel tuples met zelfde score zijn moeten we de eisen zelf strenger maken op basis van een zelf verzonnen functie.
 We zouden kunnen zeggen dat zuinigere autos voorkeur hebben. We moeten zelf even een score functie op basis van 
 autokenmerken bedenken, maar hier hoeven we niet heel lang over na te denken. Zolang de functie maar sterk onderscheidend is.

@@ -14,15 +14,19 @@ namespace QueryProcessing
         {
             //example code for creating attributes and calculating qfidf scores
             DBManipulations.executeSQL("DROP TABLE qfidfsimilarity");
+            DBManipulations.executeSQL("DROP TABLE extendedqf");
+            //DBManipulations.executeSQL("DROP TABLE extendedqf");
             List<Attribute> attributes = new List<Attribute>();
             
             attributes.Add(new NumericalAttribute("cylinders", "8"));
             attributes.Add(new NumericalAttribute("horsepower", "60.5"));
             attributes.Add(new CategoricalAttribute("type", "'coupe'"));
-            attributes.Add(new CategoricalAttribute("origin", "2"));
+
             attributes.Add(new CategoricalAttribute("model", "'1131 deluxe sedan'"));
             SimilarityScoreTable simT = new SimilarityScoreTable(attributes);
+
             simT.createQFIDFSimilarityTable();
+            simT.createExtendedQFTable();
         }
         static QueryProcessor? parseInput(string input)
         {
