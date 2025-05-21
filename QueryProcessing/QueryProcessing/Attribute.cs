@@ -222,28 +222,12 @@ namespace QueryProcessing
 
         public override float calculateIDFSimilarity(string tupleAttributeVal)
         {
-            if(attributeName != "origin")
-            {
-                if ("'" + tupleAttributeVal + "'" == _queryValue)
-                {
-                    return getIDF();
-                }
-                else
-                {
-                    return 0;
-                }
-            }
-            else
-            {
-                if (tupleAttributeVal == _queryValue)
-                {
-                    return getIDF();
-                }
-                else
-                {
-                    return 0;
-                }
-            }
+            //if t != q then qfsim(t, q) will be 0 so we dont need to take that into account here also
+            //but also if t != q and we want to weigh the jacquard coefficient together with qf (formula 6)
+            //then we dont want idf to be 0 because then J(t,q)*QF*IDF will be 0
+            //when t!=q we want J(t,q)*QF(t, q) < QF(t, q) when t == q
+            //returning the idf will scale things correctly
+            return getIDF();
         }
 
         public override float calculateQFSimilarity(string tupleAttributeVal)
@@ -256,7 +240,8 @@ namespace QueryProcessing
                 }
                 else
                 {
-                    return 0;
+                    //if the t != q then calculate formula (6) from paper
+                    return getJacquardCoef(tupleAttributeVal)*getQF();
                 }
             }
             else
@@ -267,10 +252,40 @@ namespace QueryProcessing
                 }
                 else
                 {
-                    return 0;
+                    //if the t != q then calculate formula (6) from paper
+                    return getJacquardCoef(tupleAttributeVal) * getQF();
                 }
             }
         }
+        
+        private float getJacquardCoef(string tupleAttributeVal)
+        {
+            //only brand and type have jc because
+            //only they are mentioned in IN clauses in the workload
+            if(attributeName == "brand" || attributeName == "type")
+            {
+                float jacques = 0;
+                DBManipulations.readTuples(
+                    String.Format(@"SELECT jcoef FROM jacquard{0} WHERE 
+                                    ({0}1 = {1} AND {0}2 = {2})
+                                    OR
+                                    ({0}1 = {2} AND {0}2 = {1})", 
+                    attributeName,
+                    _queryValue,
+                    "'" + tupleAttributeVal + "'"),
+                    delegate (SQLiteDataReader reader)
+                    {
+                        jacques = reader.GetFloat(0);
+                    }
+                    );
+                return jacques;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
         public override float getQF()
         {
             if (!qfCalculated)

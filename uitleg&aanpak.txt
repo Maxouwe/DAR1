@@ -89,16 +89,14 @@ We zouden dus er voor kunnen zorgen dat ferraris ook terug worden gegeven.
 Dit doen we door naar de IN queries van de workload te kijken.
 attribuut waarden die samen in een IN query staan, daarvan zeggen we dat die vergelijkbaar zijn.
 Stel dat er nog steeds te weinig tuples zijn.
-We zouden als eerst kunnen kijken of er attributen zijn die missen.
-We ranken nu de tuples of basis van de QFIDF score van de missende attributen.
-Het is wel belangrijk dat we de originele ranking behouden en dat we de top-k
-alleen maar langer maken. Dus we willen niet dat de additionele ranking
-het bovenste deel van de top-k in de war haalt. 
-Is het probleem juist dat er te veel eisen zijn dan maken we de eisen zwakker.
-Het kan dus zijn dat de query zo specifiek is dat we wat attributen weg moeten halen.
-Waarschijnlijk moeten we even een ranking maken van belangrijkheid van attributen.
-We zouden kunnen zeggen merk > type > model > horsepower > verbruik > etc.
-En dan telkens elke verzwakkings stap de minst belangrijke attribuut uit de query te verwijderen.
+Dan is het waarschijnlijk dat er te weinig gespecificeerde attribute waardes 
+in de query staan. Stel dat elke attribuut waarde is gespecificeerd
+dan is het onwaarschijnlijk dat er geen tuples zijn die 0 scoren
+met alle queryvalues, vanwege de normale verdeling. Alleen 
+de categorische attributen zouden QFIDF similarity van 0 kunnen zorgen.
+Dus om zero tuples te verkomen kunnen we alle missende
+attributen gebruiken net zoals bij many answers.
+
 
 
 Dit is in principe alles.

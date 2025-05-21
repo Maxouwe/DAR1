@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Data.Common;
 using System.Data.SqlClient;
 using System.Data.SQLite;
 using System.IO;
@@ -33,14 +34,20 @@ namespace Preprocessing
 
             //instantiate all qf and idf tables 
             executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metaTableDefinitions.txt"));
-         
+
             //execute all load instructions from metaTableLoadInstructions.txt
             //i.e. fill all idf-tables with data (both categorical and numerical)
             executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metaTableLoadInstructions.txt"));
 
+            //calculate all jacquard coefficients
+            //from the workload
+            createJacquardTables(metaConnection);
+
             //fill all qf table with data (categorical and numerical)
             //by parsing and analyzing the workload.txt file
             calculateQFs(metaConnection);
+
+            
 
             //close the database connection
             metaConnection.Close();
@@ -145,6 +152,294 @@ namespace Preprocessing
                 );
         }
 
+        //create a table for each attribute
+        //where each entry contains a attributevalue combination and its jacquard coefficient
+        public static void createJacquardTables(SQLiteConnection connection)
+        {
+            //only brand and type are inside IN queries in the workload
+            executeSQL(connection,
+                @"CREATE TABLE wbrand(
+                    brand text,
+                    inqueryid int
+                    )"
+                );
+
+            executeSQL(connection,
+                @"CREATE TABLE wtype(
+                    type text,
+                    inqueryid int
+                    )"
+                );
+            executeSQL(connection,
+                @"CREATE TABLE inquerycombinationsbrand(
+                    brand1 text,
+                    brand2 text,
+                    UNIQUE(brand1, brand2)
+                    )"
+                );
+            executeSQL(connection,
+                @"CREATE TABLE inquerycombinationstype(
+                    type1 text,
+                    type2 text,
+                    UNIQUE(type1, type2)
+                    )"
+                );
+            string[] lines = File.ReadLines(@"..\..\..\..\..\db\workload.txt").ToArray();
+
+
+            //keep record of inquery id
+            int INQID = 1;
+          
+            for (int i = 2; i < lines.Length; i++)
+            {
+                if (lines[i] != "")
+                {
+                    string[] line = lines[i].Trim().Split(' ');
+
+                    //if there is an inquery
+                    if (line.Contains<string>("IN"))
+                    {
+                        int a = 0;
+                        string[] beforeBracket = lines[i].Trim().Split('(')[a].Trim().Split(' ');
+                        if (beforeBracket[beforeBracket.Length-1] == "COUNT")
+                        {
+                            a = 1;
+                            beforeBracket = lines[i].Trim().Split('(')[a].Trim().Split(' ');
+                        }
+                        string attribute = beforeBracket[beforeBracket.Length - 2];
+
+                        //get everything inside the brackets of the inquery
+                        string inquery = lines[i].Trim().Split('(')[a + 1].Trim().Split(')')[0];
+                        //get all elements of inquery
+                        string[] INQelements = inquery.Trim().Split(',');
+
+
+                        //add each element to the corresponding wtable together with inquery id
+                        //add each element combination to the inquery combination table
+                        for (int j = 0; j < INQelements.Length; j++)
+                        {
+                            
+                            executeSQL(
+                                connection,
+                                String.Format(@"INSERT INTO w{0} VALUES ({1}, {2})", attribute, INQelements[j], INQID)
+                                );
+
+                            for (int k = j + 1; k < INQelements.Length; k++)
+                            {
+                                executeSQL(
+                                    connection,
+                                    String.Format(@"INSERT OR IGNORE INTO inquerycombinations{0} VALUES ({1}, {2})", attribute, INQelements[j], INQelements[k])
+                                    );
+                            }
+                        }
+                        INQID++;
+                    }
+                    
+                }
+                
+            }
+
+            //jacquard brand
+            executeSQL(
+                connection,
+                @"CREATE TABLE jacquardbrand(
+                    brand1 text,
+                    brand2 text,
+                    jcoef real
+                )"
+                );
+
+            readTuples(
+                connection,
+                @"SELECT * FROM inquerycombinationsbrand",
+                delegate (SQLiteDataReader reader)
+                {
+                    string brand1 = "'" + reader.GetString(0) + "'";
+                    executeSQL(
+                        connection,
+                        @"CREATE TABLE IF NOT EXISTS temp1(
+                            INQID int,
+                            UNIQUE(INQID)
+                        )"
+                        );
+
+                    readTuples(
+                        connection,
+                        String.Format(@"SELECT * FROM wbrand WHERE brand = {0}", brand1),
+                        delegate(SQLiteDataReader reader2)
+                        {
+                            executeSQL(
+                                connection,
+                                String.Format(@"INSERT INTO temp1 VALUES ({0})", reader2.GetInt32(1))
+                                );
+                        }
+                        );
+
+                    string brand2 = "'" + reader.GetString(1) + "'";
+                    executeSQL(
+                        connection,
+                        @"CREATE TABLE IF NOT EXISTS temp2(
+                            INQID int,
+                            UNIQUE(INQID)
+                        )"
+                        );
+
+                    readTuples(
+                        connection,
+                        String.Format(@"SELECT * FROM wbrand WHERE brand = {0}", brand2),
+                        delegate (SQLiteDataReader reader3)
+                        {
+                            executeSQL(
+                                connection,
+                                String.Format(@"INSERT INTO temp2 VALUES ({0})", reader3.GetInt32(1))
+                                );
+                        }
+                        );
+
+                    //get size of INTERSECTION(W(t), W(q))
+                    int intersectionSize = 1;
+                    readTuples(
+                        connection,
+                        @"SELECT COUNT(*) FROM temp1 INNER JOIN temp2 ON temp1.INQID = temp2.INQID",
+                        delegate (SQLiteDataReader reader4)
+                        {
+                            intersectionSize = reader4.GetInt32(0);
+                        }
+                        );
+                    //get size of UNION(W(t), W(q))
+                    int unionSize = 1;
+                    readTuples(
+                        connection,
+                        @"SELECT COUNT(DISTINCT INQID) FROM (SELECT * FROM temp1 UNION SELECT * FROM temp2)",
+                        delegate (SQLiteDataReader reader4)
+                        {
+                            unionSize = reader4.GetInt32(0);
+                        }
+                        );
+                    executeSQL(
+                        connection,
+                        String.Format(@"INSERT INTO jacquardbrand VALUES ({0}, {1}, {2})", 
+                        brand1, 
+                        brand2, 
+                        (float)intersectionSize/(float)unionSize)
+                        );
+
+                    executeSQL(
+                        connection,
+                        @"DELETE FROM temp1"
+                        );
+                    executeSQL(
+                        connection,
+                        @"DELETE FROM temp2"
+                        );
+                }
+                );
+
+            //jacquard type
+            executeSQL(
+                connection,
+                @"CREATE TABLE jacquardtype(
+                    type1 text,
+                    type2 text,
+                    jcoef real
+                )"
+                );
+
+            readTuples(
+                connection,
+                @"SELECT * FROM inquerycombinationstype",
+                delegate (SQLiteDataReader reader)
+                {
+                    string type1 = "'" + reader.GetString(0) + "'";
+                    executeSQL(
+                        connection,
+                        @"CREATE TABLE IF NOT EXISTS temp1(
+                            INQID int,
+                            UNIQUE(INQID)
+                        )"
+                        );
+
+                    readTuples(
+                        connection,
+                        String.Format(@"SELECT * FROM wtype WHERE type = {0}", type1),
+                        delegate (SQLiteDataReader reader2)
+                        {
+                            executeSQL(
+                                connection,
+                                String.Format(@"INSERT INTO temp1 VALUES ({0})", reader2.GetInt32(1))
+                                );
+                        }
+                        );
+
+                    string type2 = "'" + reader.GetString(1) + "'";
+                    executeSQL(
+                        connection,
+                        @"CREATE TABLE IF NOT EXISTS temp2(
+                            INQID int,
+                            UNIQUE(INQID)
+                        )"
+                        );
+
+                    readTuples(
+                        connection,
+                        String.Format(@"SELECT * FROM wtype WHERE type = {0}", type2),
+                        delegate (SQLiteDataReader reader3)
+                        {
+                            executeSQL(
+                                connection,
+                                String.Format(@"INSERT INTO temp2 VALUES ({0})", reader3.GetInt32(1))
+                                );
+                        }
+                        );
+
+                    //get size of INTERSECTION(W(t), W(q))
+                    int intersectionSize = 1;
+                    readTuples(
+                        connection,
+                        @"SELECT COUNT(*) FROM temp1 INNER JOIN temp2 ON temp1.INQID = temp2.INQID",
+                        delegate (SQLiteDataReader reader4)
+                        {
+                            intersectionSize = reader4.GetInt32(0);
+                        }
+                        );
+                    //get size of UNION(W(t), W(q))
+                    int unionSize = 1;
+                    readTuples(
+                        connection,
+                        @"SELECT COUNT(DISTINCT INQID) FROM (SELECT * FROM temp1 UNION SELECT * FROM temp2)",
+                        delegate (SQLiteDataReader reader4)
+                        {
+                            unionSize = reader4.GetInt32(0);
+                        }
+                        );
+                    executeSQL(
+                        connection,
+                        String.Format(@"INSERT INTO jacquardtype VALUES ({0}, {1}, {2})",
+                        type1,
+                        type2,
+                        (float)intersectionSize / (float)unionSize)
+                        );
+                    executeSQL(
+                        connection,
+                        @"DELETE FROM temp1"
+                        );
+                    executeSQL(
+                        connection,
+                        @"DELETE FROM temp2"
+                        );
+                }
+                );
+            executeSQL(
+                connection,
+                @"DROP TABLE temp1;
+                  DROP TABLE temp2;
+                  DROP TABLE inquerycombinationsbrand;
+                  DROP TABLE inquerycombinationstype;
+                  DROP TABLE wbrand;
+                  DROP TABLE wtype;
+                "
+                );
+        }
         //executes a string of sql statements
         static void executeSQL(SQLiteConnection dbConnection, string sqlStatements)
         {
@@ -173,5 +468,8 @@ namespace Preprocessing
                 }
             }
         }
+
+        
+
     }
 }

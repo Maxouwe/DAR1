@@ -16,7 +16,7 @@ namespace QueryProcessing
         private List<Attribute> _query;
         private int _k;
         private SimilarityScoreTable _simTable;
-
+        
         public QueryProcessor(List<Attribute> query, int k) 
         {
             _k = k;
@@ -74,8 +74,8 @@ namespace QueryProcessing
             return zeroTuples;
         }
 
-        
 
+        
         //if there are too many tuples i.e. there are alot of ties in qfidfsimilarity score
         //then we do additional ranking by qf score of the missing attributes see section 5 of paper
         //the new topk is ranked by qfidfsimilarity 
@@ -141,6 +141,7 @@ namespace QueryProcessing
                 connection.Close();
             }
         }
+
 
 
     }

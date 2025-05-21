@@ -23,19 +23,25 @@ namespace QueryProcessing
             
             attributes.Add(new NumericalAttribute("cylinders", "8"));
             attributes.Add(new NumericalAttribute("horsepower", "60.5"));
-            attributes.Add(new CategoricalAttribute("type", "'coupe'"));
+            attributes.Add(new CategoricalAttribute("type", "'sedan'"));
 
             attributes.Add(new CategoricalAttribute("model", "'1131 deluxe sedan'"));
             QueryProcessor processor = new QueryProcessor(attributes, 10);
 
             //this should work if topK has structure like this id int, tuplescore real
             //and table name is "topK"
-            //processor.findTopK();
-            //if(processor.isTooMany(3))
+            //processor.createTopK();
+            //if(processor.isTooManyTuples(3))
             //{
             //  processor.rankByExtendedQF("topK");
             //}
-            
+            //zero tuples are manages by the jacquard technique
+            //if despite this there are still zero tuples 
+            //we use extendedqf technique (explained in report)
+            //if(processor.isZeroTuples(3))
+            //{
+            //  processor.rankByExtendedQF("topK");
+            //}
 
 
 
