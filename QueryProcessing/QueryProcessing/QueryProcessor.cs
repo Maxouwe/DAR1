@@ -15,15 +15,19 @@ namespace QueryProcessing
     {
         private List<Attribute> _query;
         private int _k;
+        private SimilarityScoreTable _similarityTable; 
 
         public QueryProcessor(List<Attribute> query, int k) 
         {
             _k = k;
             _query = query;
+            _similarityTable = new SimilarityScoreTable(_query);  
         }
        
         public void CalculateTopK()
         {
+            
+            DBManipulations.executeSQL("DROP TABLE IF EXISTS qfidfsimilarity");
             _similarityTable.createQFIDFSimilarityTable();
 
             //New table for keeping track of the scores 
@@ -43,8 +47,9 @@ namespace QueryProcessing
                 queryParts.Add(part);
             }
 
-            string attributeScoresQuery = string.Join("\nUNION ALL\n", queryParts) +
-                                "\nORDER BY total_score DESC";
+            string attributeScoresQuery = "INSERT INTO attribute_scores " +
+                            "(" + string.Join("\nUNION ALL\n", queryParts) +
+                            ")\nORDER BY total_score DESC";
 
             DBManipulations.executeSQL(attributeScoresQuery);
 
