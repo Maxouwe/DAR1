@@ -15,22 +15,24 @@ namespace QueryProcessing
     {
         private List<Attribute> _query;
         private int _k;
+        private SimilarityScoreTable _simTable;
 
         public QueryProcessor(List<Attribute> query, int k) 
         {
             _k = k;
             _query = query;
+            _simTable = new SimilarityScoreTable(query);
         }
 
         //checks wether there are too many answers
-        //we say there are too many tuples if there are k/2 >=  tuples with the same score
+        //we say there are too many tuples if there are threshold >=  tuples with the same score
         //scoreColumn is the name of the column in which the score of each tuple is held
-        public bool isManyTuples(string tableName, string scoreColumn)
+        public bool isManyTuples(string tableName, string scoreColumn, int threshold)
         {
             //dictionary to keep count of each qfidf score
             Dictionary<float, int> countDict = new Dictionary<float, int>();
             
-            //if there is a score in countDict that has k/2 >= counts we return true
+            //if there is a score in countDict that has threshold >= counts we return true
             bool tooMany = false;
             DBManipulations.readTuples(
                 String.Format(@"SELECT {0} FROM {1}", scoreColumn, tableName),
@@ -40,7 +42,7 @@ namespace QueryProcessing
                     if (countDict.ContainsKey(score))
                     {
                         countDict[score]++;
-                        if (countDict[score] >= _k/2) 
+                        if (countDict[score] >= threshold) 
                         {
                             tooMany = true;
                         }
@@ -58,7 +60,6 @@ namespace QueryProcessing
         //we say there are zero tuples if there are less than k tuples in the answer
         public bool isZeroTuples(string tableName)
         {
-            //if there is a qfidfscore in countDict that has k/2 >= counts we return true
             bool zeroTuples = false;
             DBManipulations.readTuples(
                 String.Format(@"SELECT COUNT(*) FROM {0}", tableName),
@@ -73,40 +74,74 @@ namespace QueryProcessing
             return zeroTuples;
         }
 
-        //if too many tuples use extendedqf table to break ties see section 5 of paper
-        //we want that the ranking between different equivalence classes stays the same
-        //but that within the same equivalence class we rerank the tuple
-        //i.e. if we have 5 tuples with a qfidf similarity of 5, 5, 3, 3, 1
-        //Then we want that 5 stays above 3 and 1 and 3 stays above 1 in the ranking
-        //but for exmaple that the two tuples 5 and 5 are reranked with eachother
-        public void rankByExtendedQF()
+        
+
+        //if there are too many tuples i.e. there are alot of ties in qfidfsimilarity score
+        //then we do additional ranking by qf score of the missing attributes see section 5 of paper
+        //the new topk is ranked by qfidfsimilarity 
+        //and if the qfidfsimilarity is the same then rank by qf score of missing attributes
+        public void rankByExtendedQF(string topKtable)
         {
-            //first create extendedqfsum table
-            //where we have id, qfidfsum, extendedqfsum
-            //from extendedqf table and ordered by extendedqfsum
+            _simTable.createExtendedQFTable();
 
-            //then do this
-            //where id = tuple id
-            //a = qfidfsum
-            //b = extendedqfsum
-            //A = autompg
-            //B = topk table
-            //C = extendedqf table
-            //result = new topk
+            using (SQLiteConnection connection = new SQLiteConnection(DBManipulations.connectionString))
+            {
+                connection.Open();
 
-            /*CREATE TABLE result(
-            id int,
-            a int,
-            b int
-            );
+                DBManipulations.executeSQLNoConnection(connection,
+                @"CREATE TABLE IF NOT EXISTS topKTemp1(
+                    id int,
+                    qfidfsum real,
+                    extendedqfsum real,
+                    PRIMARY KEY (id))
+                ");
 
-            INSERT INTO result
-            SELECT A.id, Q.a, Q.b FROM
-            (SELECT B.a, C.b FROM B
-            INNER JOIN C ON B.a = C.a) AS Q
-            INNER JOIN A ON Q.a = A.a AND Q.b = A.b
-            */
+                DBManipulations.readTuplesNoConnection(connection,
+                    String.Format(@"SELECT * FROM {0} INNER JOIN extendedqfsum ON extendedqfsum.id = {0}.id", topKtable),
+                    delegate (SQLiteDataReader reader)
+                    {
+                        DBManipulations.executeSQLNoConnection(connection,
+                            String.Format(@"INSERT INTO topKTemp1 VALUES ({0}, {1}, {2})",
+                            reader.GetInt32(reader.GetOrdinal("id")),
+                            reader.GetFloat(reader.GetOrdinal("qfidfsum")),
+                            reader.GetFloat(reader.GetOrdinal("extendedqfsum"))
+                            ));
+                    }
+                    );
+
+                DBManipulations.executeSQLNoConnection(connection, @"DROP TABLE " + topKtable);
+                DBManipulations.executeSQLNoConnection(connection,
+                @"CREATE TABLE topK(
+                    id int,
+                    qfidfsum real,
+                    extendedqfsum real,
+                    PRIMARY KEY (id))
+                ");
+
+
+                //first order by qfidfsum and if qfidfsum is the same then order by extendedqfsum
+                DBManipulations.readTuplesNoConnection(connection,
+                    String.Format(@"SELECT * FROM topKTemp1 ORDER BY qfidfsum DESC, extendedqfsum DESC"),
+                    delegate (SQLiteDataReader reader)
+                    {
+                        DBManipulations.executeSQLNoConnection(connection,
+                            String.Format(@"INSERT INTO topK VALUES ({0}, {1}, {2})",
+                            reader.GetInt32(reader.GetOrdinal("id")),
+                            reader.GetFloat(reader.GetOrdinal("qfidfsum")),
+                            reader.GetFloat(reader.GetOrdinal("extendedqfsum"))
+                            ));
+                    }
+                    );
+
+                
+                DBManipulations.executeSQLNoConnection(connection, @"DROP TABLE topKTemp1");
+                
+
+
+                connection.Close();
+            }
         }
+
 
     }
 }

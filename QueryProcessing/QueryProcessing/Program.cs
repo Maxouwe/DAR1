@@ -13,9 +13,12 @@ namespace QueryProcessing
         static void Main(string[] args)
         {
             //example code for creating attributes and calculating qfidf scores
-            DBManipulations.executeSQL("DROP TABLE qfidfsimilarity");
-            DBManipulations.executeSQL("DROP TABLE extendedqf");
-            //DBManipulations.executeSQL("DROP TABLE extendedqf");
+            DBManipulations.executeSQL("DROP TABLE IF EXISTS qfidfsimilarity");
+            DBManipulations.executeSQL("DROP TABLE IF EXISTS extendedqfsum");
+            DBManipulations.executeSQL("DROP TABLE IF EXISTS topK");
+            DBManipulations.executeSQL("DROP TABLE IF EXISTS topKTemp1");
+            DBManipulations.executeSQL("DROP TABLE IF EXISTS topKTemp2");
+
             List<Attribute> attributes = new List<Attribute>();
             
             attributes.Add(new NumericalAttribute("cylinders", "8"));
@@ -23,10 +26,20 @@ namespace QueryProcessing
             attributes.Add(new CategoricalAttribute("type", "'coupe'"));
 
             attributes.Add(new CategoricalAttribute("model", "'1131 deluxe sedan'"));
-            SimilarityScoreTable simT = new SimilarityScoreTable(attributes);
+            QueryProcessor processor = new QueryProcessor(attributes, 10);
 
-            simT.createQFIDFSimilarityTable();
-            simT.createExtendedQFTable();
+            //this should work if topK has structure like this id int, tuplescore real
+            //and table name is "topK"
+            //processor.findTopK();
+            //if(processor.isTooMany(3))
+            //{
+            //  processor.rankByExtendedQF("topK");
+            //}
+            
+
+
+
+
         }
         static QueryProcessor? parseInput(string input)
         {

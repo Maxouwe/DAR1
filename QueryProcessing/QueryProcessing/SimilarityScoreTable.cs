@@ -131,19 +131,9 @@ namespace QueryProcessing
             using (SQLiteConnection connection = new SQLiteConnection(DBManipulations.connectionString))
             {
                 connection.Open();
-                DBManipulations.executeSQLNoConnection(connection, @"CREATE TABLE extendedqf (
+                DBManipulations.executeSQLNoConnection(connection, @"CREATE TABLE extendedqfsum (
                                             id integer NOT NULL,
-                                            mpgqf real,
-                                            cylindersqf real,
-                                            displacementqf real,
-                                            horsepowerqf real,
-                                            weightqf real,
-                                            accelerationqf real,
-                                            model_yearqf real,
-                                            originqf real,
-                                            brandqf real,
-                                            modelqf real,
-                                            typeqf real,
+                                            extendedqfsum float,
                                             PRIMARY KEY (id))"
                 );
 
@@ -152,7 +142,7 @@ namespace QueryProcessing
                     {
                         //store current tuple and qfsimilarity info
                         int id = reader.GetInt32(0);
-                        float[] qfVals = new float[11];
+                        float qfValSum = 0;
 
                         //for each column in autompg
                         //if it that attribute is not mentioned in the query
@@ -169,13 +159,9 @@ namespace QueryProcessing
                                     String.Format(@"SELECT qf FROM {0}qf WHERE {0} = {1}", attributeName, tupleVal),
                                     delegate (SQLiteDataReader reader2)
                                     {
-                                        qfVals[i - 1] = reader2.GetFloat(0);
+                                        qfValSum+= reader2.GetFloat(0);
                                     }
                                     );
-                            }
-                            else
-                            {
-                                qfVals[i - 1] = 0;
                             }
                         }
 
@@ -191,32 +177,18 @@ namespace QueryProcessing
                                     String.Format(@"SELECT qf FROM {0}qf WHERE {0} = {1}", attributeName, tupleVal),
                                     delegate (SQLiteDataReader reader2)
                                     {
-                                        qfVals[i - 1] = reader2.GetFloat(0);
+                                        qfValSum+= reader2.GetFloat(0);
                                     }
                                     );
-                            }
-                            else
-                            {
-                                qfVals[i - 1] = 0;
                             }
                         }
                         DBManipulations.executeSQLNoConnection(connection,
                             String.Format(
                                 @"
-                        INSERT INTO extendedqf VALUES 
-                        ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11})",
+                        INSERT INTO extendedqfsum VALUES 
+                        ({0}, {1})",
                                 id,
-                                qfVals[0],
-                                qfVals[1],
-                                qfVals[2],
-                                qfVals[3],
-                                qfVals[4],
-                                qfVals[5],
-                                qfVals[6],
-                                qfVals[7],
-                                qfVals[8],
-                                qfVals[9],
-                                qfVals[10]
+                                qfValSum
                                 ));
                     }
                     );
