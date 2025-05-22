@@ -16,6 +16,8 @@ namespace Preprocessing
 
         static void Main(string[] args)
         {
+            Console.WriteLine("this might take a few minutes");
+            Console.WriteLine("processing...");
             //make sure to delete the previous metadatabase
             if (File.Exists(@"..\..\..\..\..\db\metadata.db"))
             {
@@ -33,11 +35,11 @@ namespace Preprocessing
             executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\autompg.sql"));
 
             //instantiate all qf and idf tables 
-            executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metaTableDefinitions.txt"));
+            executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metadb.txt"));
 
             //execute all load instructions from metaTableLoadInstructions.txt
             //i.e. fill all idf-tables with data (both categorical and numerical)
-            executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metaTableLoadInstructions.txt"));
+            executeSQL(metaConnection, File.ReadAllText(@"..\..\..\..\..\db\metaload.txt"));
 
             //calculate all jacquard coefficients
             //from the workload
@@ -51,6 +53,8 @@ namespace Preprocessing
 
             //close the database connection
             metaConnection.Close();
+            Console.WriteLine("Done");
+            Console.ReadLine();
         }
 
         //fill all qf table with data (categorical and numerical)

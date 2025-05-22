@@ -118,11 +118,7 @@ namespace QueryProcessing
             }
         }
 
-        //deletes all similarity tables, needed if we want to do a new query
-        public void deleteSimilarityTables()
-        {
-
-        }
+        
 
         //creates extended table based on the QF scores of the missing attribute values of the query
         //use in case of too many answers see section 5 of paper

@@ -12,41 +12,41 @@ namespace QueryProcessing
 
         static void Main(string[] args)
         {
-            //example code for creating attributes and calculating qfidf scores
+
+            //runDemo();
+            
+            while (true)
+            {
+                runProgram();
+            }
+
+        }
+        static void runProgram()
+        {
+            Console.WriteLine("make sure to stick to the input format");
+            deleteSimilarityTables();
+            Console.WriteLine("please enter your query");
+            QueryProcessor processor = parseInput(Console.ReadLine());
+            while(processor == null)
+            {
+                Console.WriteLine("please enter a valid query");
+                processor = parseInput(Console.ReadLine());
+            }
+            Console.WriteLine("processing...");
+            processor.rankByQFIDF();
+            processor.rankByExtendedQF();
+            retrieveTuples();
+
+            Console.WriteLine("press enter for your next query");
+            Console.ReadLine();
+        }
+        static void deleteSimilarityTables()
+        {
             DBManipulations.executeSQL("DROP TABLE IF EXISTS qfidfsimilarity");
             DBManipulations.executeSQL("DROP TABLE IF EXISTS extendedqfsum");
             DBManipulations.executeSQL("DROP TABLE IF EXISTS topK");
-            DBManipulations.executeSQL("DROP TABLE IF EXISTS topKTemp1");
-            DBManipulations.executeSQL("DROP TABLE IF EXISTS topKTemp2");
-
-            List<Attribute> attributes = new List<Attribute>();
-            
-            attributes.Add(new NumericalAttribute("cylinders", "8"));
-            attributes.Add(new NumericalAttribute("horsepower", "60.5"));
-            attributes.Add(new CategoricalAttribute("type", "'sedan'"));
-
-            attributes.Add(new CategoricalAttribute("model", "'1131 deluxe sedan'"));
-            QueryProcessor processor = new QueryProcessor(attributes, 10);
-
-            //this should work if topK has structure like this id int, tuplescore real
-            //and table name is "topK"
-            //processor.createTopK();
-            //if(processor.isTooManyTuples(3))
-            //{
-            //  processor.rankByExtendedQF("topK");
-            //}
-            //zero tuples are manages by the jacquard technique
-            //if despite this there are still zero tuples 
-            //we use extendedqf technique (explained in report)
-            //if(processor.isZeroTuples(3))
-            //{
-            //  processor.rankByExtendedQF("topK");
-            //}
-
-
-
-
         }
+
         static QueryProcessor? parseInput(string input)
         {
             int k = 10;
@@ -92,6 +92,87 @@ namespace QueryProcessing
             return new QueryProcessor(terms, k);
         }
 
+        static void retrieveTuples()
+        {
+            DBManipulations.readTuples(
+                @"SELECT topK.id, mpg, cylinders, displacement, horsepower, weight, acceleration, model_year, origin, brand, model, type, qfidfsum, extendedqfsum
+                    FROM topK
+                    INNER JOIN autompg ON topK.id = autompg.id",
+                delegate (SQLiteDataReader reader)
+                {
+                    Console.WriteLine("-----------------------------------------------------------------------------");
+                    for (int i = 0; i < 13; i++)
+                    {
+                        Console.Write(reader.GetValue(i) + "|");
+                    }
+                    Console.WriteLine(reader.GetValue(13));
+                }
+                );
+            Console.WriteLine("-----------------------------------------------------------------------------");
+        }
 
+        static void runDemo()
+        {
+            Console.WriteLine("Processing...");
+            //example1 zero tuples
+            deleteSimilarityTables();
+            List<Attribute> attributes = new List<Attribute>();
+            attributes.Add(new CategoricalAttribute("brand", "'nissan'"));
+            QueryProcessor processor = new QueryProcessor(attributes, 5);
+            processor.rankByQFIDF();
+            processor.rankByExtendedQF();
+            Console.WriteLine("We query brand = nissan");
+            Console.WriteLine("There is only one nissan in the database");
+            Console.WriteLine("This is an example when there are too little answers (we consider it a zero answers case)");
+            Console.WriteLine("We used the jacquard coefficient to determine similar cars");
+            Console.WriteLine("This way we are able to retrieve other cars similar to nissan");
+            retrieveTuples();
+            Console.WriteLine("Press enter to go to the next example");
+            Console.ReadLine();
+            Console.WriteLine("Processing...");
+            Console.WriteLine("");
+
+            //example2 zero tuples
+            deleteSimilarityTables();
+            attributes = new List<Attribute>();
+            attributes.Add(new CategoricalAttribute("brand", "'Spijker'"));
+            processor = new QueryProcessor(attributes, 5);
+            processor.rankByQFIDF();
+            processor.rankByExtendedQF();
+            Console.WriteLine("We query brand = Spijker");
+            Console.WriteLine("Unfortunately there are no Spijker cars in the database");
+            Console.WriteLine("So this is again a case of zero answers");
+            Console.WriteLine("The jacquard coefficient does not help because Spijker cars do not appear in the workload");
+            Console.WriteLine("But because of our extendedqf method we are able to still retrieve cars");
+            Console.WriteLine("In this case we retrieve the most popular cars according to the workload");
+            retrieveTuples();
+            Console.WriteLine("Press enter to go to the next example");
+            Console.ReadLine();
+            Console.WriteLine("Processing...");
+            Console.WriteLine("");
+
+            //example many tuples
+            deleteSimilarityTables();
+            attributes = new List<Attribute>();
+            attributes.Add(new CategoricalAttribute("type", "'sedan'"));
+            attributes.Add(new NumericalAttribute("cylinders", "6"));
+            attributes.Add(new NumericalAttribute("mpg", "22"));
+            processor = new QueryProcessor(attributes, 5);
+            processor.rankByQFIDF();
+            processor.rankByExtendedQF();
+            Console.WriteLine("We query type = sedan AND cyclinders = 6 AND mpg = 22");
+            Console.WriteLine("There are alot of sedans in the database");
+            Console.WriteLine("And they all have the same score (second to last number of each tuple)");
+            Console.WriteLine("We applied the extendedqf method from the paper...");
+            Console.WriteLine("to rank between cars that have the same score.");
+            Console.WriteLine("This additional score is the last number of each tuple");
+            Console.WriteLine("You can see that we first rank by original score");
+            Console.WriteLine("And then if score is the same we rank by extendedqf");
+            retrieveTuples();
+            Console.WriteLine("End of demo");
+            Console.ReadLine();
+
+        }
     }
+
 }

@@ -24,63 +24,67 @@ namespace QueryProcessing
             _simTable = new SimilarityScoreTable(query);
         }
 
-        //checks wether there are too many answers
-        //we say there are too many tuples if there are threshold >=  tuples with the same score
-        //scoreColumn is the name of the column in which the score of each tuple is held
-        public bool isManyTuples(string tableName, string scoreColumn, int threshold)
-        {
-            //dictionary to keep count of each qfidf score
-            Dictionary<float, int> countDict = new Dictionary<float, int>();
-            
-            //if there is a score in countDict that has threshold >= counts we return true
-            bool tooMany = false;
-            DBManipulations.readTuples(
-                String.Format(@"SELECT {0} FROM {1}", scoreColumn, tableName),
-                delegate (SQLiteDataReader reader)
-                {
-                    float score = reader.GetFloat(reader.GetOrdinal(scoreColumn));
-                    if (countDict.ContainsKey(score))
-                    {
-                        countDict[score]++;
-                        if (countDict[score] >= threshold) 
-                        {
-                            tooMany = true;
-                        }
-                    }
-                    else
-                    {
-                        countDict[score] = 1;
-                    }
-                }
-                );
-            return tooMany;
-        }
-
-        //checks wether there are zeroTuples
-        //we say there are zero tuples if there are less than k tuples in the answer
-        public bool isZeroTuples(string tableName)
-        {
-            bool zeroTuples = false;
-            DBManipulations.readTuples(
-                String.Format(@"SELECT COUNT(*) FROM {0}", tableName),
-                delegate (SQLiteDataReader reader)
-                {
-                    if (reader.GetInt32(0) < _k)
-                    {
-                        zeroTuples = true;
-                    }
-                }
-                );
-            return zeroTuples;
-        }
-
-
         
+        public void rankByQFIDF()
+        {
+            _simTable.createQFIDFSimilarityTable();
+            using (SQLiteConnection connection = new SQLiteConnection(DBManipulations.connectionString))
+            {
+                connection.Open();
+                DBManipulations.executeSQLNoConnection(connection,
+                @"CREATE TABLE topKTemp(
+                    id int,
+                    qfidfsum real,
+                    PRIMARY KEY (id))
+                ");
+
+                DBManipulations.readTuplesNoConnection(
+                    connection,
+                    @"SELECT * FROM qfidfsimilarity",
+                    delegate (SQLiteDataReader reader)
+                    {
+                        float qfidfsum = 0;
+                        for (int i = 1; i < 12; i++)
+                        {
+                            qfidfsum += reader.GetFloat(i);
+                        }
+                        DBManipulations.executeSQLNoConnection(
+                            connection,
+                            String.Format(@"INSERT INTO topKTemp VALUES ({0}, {1})", reader.GetInt32(0), qfidfsum)
+                            );
+                    }
+                    );
+                DBManipulations.executeSQLNoConnection(connection,
+                @"CREATE TABLE topK(
+                    id int,
+                    qfidfsum real,
+                    PRIMARY KEY (id))
+                ");
+
+                DBManipulations.readTuplesNoConnection(
+                    connection,
+                    String.Format(@"SELECT * FROM topKTemp ORDER BY qfidfsum DESC"),
+                    delegate (SQLiteDataReader reader)
+                    {
+
+                        DBManipulations.executeSQLNoConnection(
+                            connection,
+                            String.Format(@"INSERT INTO topK VALUES ({0}, {1})", reader.GetInt32(0), reader.GetFloat(1))
+                            );
+                    }
+                    );
+
+                DBManipulations.executeSQLNoConnection(connection, "DROP TABLE topKTemp");
+                connection.Close();
+            }
+
+        }
+
         //if there are too many tuples i.e. there are alot of ties in qfidfsimilarity score
         //then we do additional ranking by qf score of the missing attributes see section 5 of paper
         //the new topk is ranked by qfidfsimilarity 
         //and if the qfidfsimilarity is the same then rank by qf score of missing attributes
-        public void rankByExtendedQF(string topKtable)
+        public void rankByExtendedQF()
         {
             _simTable.createExtendedQFTable();
 
@@ -97,7 +101,7 @@ namespace QueryProcessing
                 ");
 
                 DBManipulations.readTuplesNoConnection(connection,
-                    String.Format(@"SELECT * FROM {0} INNER JOIN extendedqfsum ON extendedqfsum.id = {0}.id", topKtable),
+                    @"SELECT * FROM topK INNER JOIN extendedqfsum ON extendedqfsum.id = topK.id",
                     delegate (SQLiteDataReader reader)
                     {
                         DBManipulations.executeSQLNoConnection(connection,
@@ -109,7 +113,7 @@ namespace QueryProcessing
                     }
                     );
 
-                DBManipulations.executeSQLNoConnection(connection, @"DROP TABLE " + topKtable);
+                DBManipulations.executeSQLNoConnection(connection, @"DROP TABLE topK");
                 DBManipulations.executeSQLNoConnection(connection,
                 @"CREATE TABLE topK(
                     id int,
@@ -121,7 +125,7 @@ namespace QueryProcessing
 
                 //first order by qfidfsum and if qfidfsum is the same then order by extendedqfsum
                 DBManipulations.readTuplesNoConnection(connection,
-                    String.Format(@"SELECT * FROM topKTemp1 ORDER BY qfidfsum DESC, extendedqfsum DESC"),
+                    String.Format(@"SELECT * FROM topKTemp1 ORDER BY qfidfsum DESC, extendedqfsum DESC LIMIT {0}", _k),
                     delegate (SQLiteDataReader reader)
                     {
                         DBManipulations.executeSQLNoConnection(connection,
@@ -142,7 +146,7 @@ namespace QueryProcessing
             }
         }
 
-
+        
 
     }
 }
