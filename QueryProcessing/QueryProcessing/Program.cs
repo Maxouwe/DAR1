@@ -14,7 +14,7 @@ namespace QueryProcessing
         {
 
             //runDemo();
-            
+
             while (true)
             {
                 runProgram();
@@ -33,6 +33,7 @@ namespace QueryProcessing
                 processor = parseInput(Console.ReadLine());
             }
             Console.WriteLine("processing...");
+
             processor.rankByQFIDF();
             processor.rankByExtendedQF();
             retrieveTuples();
